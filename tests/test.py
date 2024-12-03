@@ -1,9 +1,9 @@
 # Modelo Exemplo
 print("entrou aqui 1")
-from base_model import BaseModel, Field
+from arcforge.core.model import BaseModel, Field
 
 
-class UserRR(BaseModel):
+class User(BaseModel):
     _table_name = "departamento"
     id = Field("SERIAL", primary_key=True)
     name = Field("VARCHAR", nullable=False)
@@ -18,18 +18,18 @@ class Escola(BaseModel):
 
 
 # Conectar e Criar Tabela
-UserRR.set_conexao()
-UserRR.create_table()
-new_user = UserRR(codigoid = 4022222024,name="Aleeeice", email="alieeeeeeecewqqwewqddddde@eeexaeeemple.com")
+User.set_conexao()
+User.create_table()
+new_user = User(codigoid = 4022222024,name="Alice", email="alieeeeeeecewqqwewqddddde@eeexaeeemple.com")
 new_user.save()
 
 Escola.create_table()
-new_user1 = Escola(codigoid = 4022222024,name="Aleeeice", email="alieeeeeeecewqqwewqddddde@eeexaeeemple.com")
+new_user1 = Escola(codigoid = 4022222024,name="Alice", email="alieeeeeeecewqqwewqddddde@eeexaeeemple.com")
 new_user1.save()
 
 
 
 
 # Consultar Dados
-# users = UserRR.filter(name="Alice")
-# print(users)
+users = User.filter(name="Alice")
+print(users)

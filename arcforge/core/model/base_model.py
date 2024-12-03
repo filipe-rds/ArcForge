@@ -17,13 +17,18 @@ class ForeignKey:
 
 class BaseModel:
     """Classe base para modelos."""
-    _conexao = None
-    _table_name = None
-    _relationships = {}
+    # A classe BaseModel serve como base para outros modelos que representam entidades no banco de dados.
+    
+    _conexao = None  # A variável de classe _conexao armazenará a conexão com o banco de dados.
+    _table_name = None  # A variável de classe _table_name armazenará o nome da tabela do banco de dados.
+    _relationships = {}  # A variável de classe _relationships armazenará os relacionamentos entre tabelas (chaves estrangeiras).
 
     def __init__(self, **kwargs):
+        # O construtor __init__ recebe parâmetros dinâmicos **kwargs, que permitem passar qualquer número de argumentos nomeados.
         for field, value in kwargs.items():
+            # Este laço percorre todos os campos e valores passados no dicionário kwargs.
             setattr(self, field, value)
+            # Para cada campo e valor, a função setattr define um atributo na instância do modelo (self), atribuindo o valor correspondente.
 
     @classmethod
     def set_conexao(cls):
@@ -60,7 +65,7 @@ class BaseModel:
         except psycopg2.Error as e:
             print(e)
 
-    # Método que vai gerar os campos da tabela
+    # Método que vai gerar a string com os campos da tabela, que será usado no método create_table
     @classmethod
     def _generate_fields(cls):
         fields = []
@@ -115,9 +120,9 @@ class BaseModel:
         # Não inclui o campo 'id' no INSERT, pois é auto-incrementado no PostgreSQL
         for attr, value in self.__dict__.items():
             if attr != 'id' and attr in self.__class__.__dict__:
-                fields.append(attr)
-                values.append(value)
-                placeholders.append(sql.Placeholder())
+                fields.append(attr) # Adiciona o nome do campo
+                values.append(value) # Adiciona o valor do campo
+                placeholders.append(sql.Placeholder()) # Adiciona um placeholder
 
         query = sql.SQL("""
             INSERT INTO {table} ({fields})

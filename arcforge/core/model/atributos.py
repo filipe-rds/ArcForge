@@ -9,7 +9,6 @@ class  Field:
         self.default = default
 
     #Transformando os atributos da classe Field em uma string SQL
-
     def to_sql(self):
         sql_definition = self.field_type  # Começa com o tipo de dado
         

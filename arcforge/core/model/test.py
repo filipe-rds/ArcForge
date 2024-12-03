@@ -20,11 +20,11 @@ class Escola(BaseModel):
 # Conectar e Criar Tabela
 UserRR.set_conexao()
 UserRR.create_table()
-new_user = UserRR(codigoid = 4022222024,name="Aleeeice", email="alieeeeeeecewqqwewqddddde@eeexaeeemple.com")
+new_user = UserRR(codigoid = 4022222024,name="Alce", email="e@eeexaeeemple.com")
 new_user.save()
 
 Escola.create_table()
-new_user1 = Escola(codigoid = 4022222024,name="Aleeeice", email="alieeeeeeecewqqwewqddddde@eeexaeeemple.com")
+new_user1 = Escola(codigoid = 4022222024,name="Aleeeice", email="alieeemple.com")
 new_user1.save()
 
 

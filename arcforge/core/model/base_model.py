@@ -3,7 +3,7 @@ from psycopg2 import sql
 from config import *
 
 
-class Field:
+class  Field:
     """Classe base para definir campos."""
 
     def __init__(self, field_type, primary_key=False, unique=False, nullable=True, default=None):
@@ -14,16 +14,25 @@ class Field:
         self.default = default
 
     def to_sql(self):
-        sql_fragment = f"{self.field_type}"
+        sql_definition = self.field_type  # Começa com o tipo de dado
+        
+        # Adiciona a restrição PRIMARY KEY, se houver
         if self.primary_key:
-            sql_fragment += " PRIMARY KEY"
+            sql_definition += " PRIMARY KEY"
+        
+        # Adiciona UNIQUE, se houver
         if self.unique:
-            sql_fragment += " UNIQUE"
+            sql_definition += " UNIQUE"
+        
+        # Adiciona NOT NULL, se o campo não for nullable
         if not self.nullable:
-            sql_fragment += " NOT NULL"
+            sql_definition += " NOT NULL"
+        
+        # Adiciona o valor default, se houver
         if self.default is not None:
-            sql_fragment += f" DEFAULT {self.default}"
-        return sql_fragment
+            sql_definition += f" DEFAULT {self.default}"
+        
+        return sql_definition
 
 
 class ForeignKey:
@@ -120,14 +129,20 @@ class BaseModel:
                         f"Erro ao criar relacionamento Many-to-Many com '{related_table}'.") from e
 
     # Método para salvar os dados
+
+    # sql.Placeholder(): Para substituir valores.
+    # .Identifier(): Para substituir nomes de colunas ou tabelas.
+    # sql.SQL(): Para montar a query de forma segura e dinâmica.
+
     def save(self):
         """Salva ou atualiza a instância no banco de dados."""
         fields = []
         values = []
         placeholders = []
 
+        # Não inclui o campo 'id' no INSERT, pois é auto-incrementado no PostgreSQL
         for attr, value in self.__dict__.items():
-            if attr in self.__class__.__dict__:
+            if attr != 'id' and attr in self.__class__.__dict__:
                 fields.append(attr)
                 values.append(value)
                 placeholders.append(sql.Placeholder())

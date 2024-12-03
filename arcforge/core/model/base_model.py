@@ -3,6 +3,7 @@ from psycopg2 import sql
 from config import *
 
 
+# Classe Field para definir campos(ATRIBUTOS) de uma tabela
 class  Field:
     """Classe base para definir campos."""
 
@@ -12,6 +13,8 @@ class  Field:
         self.unique = unique
         self.nullable = nullable
         self.default = default
+
+    #Transformando os atributos da classe Field em uma string SQL
 
     def to_sql(self):
         sql_definition = self.field_type  # Começa com o tipo de dado
@@ -91,12 +94,15 @@ class BaseModel:
         except psycopg2.Error as e:
             print(e)
 
-    # Método para gerar os campos da tabela
+    # Método que vai gerar os campos da tabela
     @classmethod
     def _generate_fields(cls):
         fields = []
+        #cls.__dict__.items() retorna a variável e o valor dela
         for attr, field in cls.__dict__.items():
+            #Se o campo for uma instância de Field, ele adiciona o campo na lista de campos
             if isinstance(field, Field):
+                #field.to_sql() retorna o campo em formato SQL
                 fields.append(f"{attr} {field.to_sql()}")
             elif isinstance(field, ForeignKey):
                 related_table_name = field.related_class._table_name

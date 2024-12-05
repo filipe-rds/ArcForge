@@ -62,19 +62,42 @@ class DatabaseConnection:
                     fields.append(attr)
                     values.append(value)
                     placeholders.append(sql.Placeholder())
+            
+             # Tratar relacionamentos
+            unique_field = None  # Para identificar um campo único, se existir
+            processed_fields = set(fields)
+            for rel in model_instance.__class__._relationships:
+                if rel['field_name'] not in processed_fields:
+                    rel_value = getattr(model_instance, rel['field_name'], None)
+                    if rel_value is not None:
+                        fields.append(rel['field_name'])
+                        values.append(rel_value)
+                        placeholders.append(sql.Placeholder())
+                        # Se o relacionamento for One-to-One, definimos o campo como único
+                        if rel.get("unique", False):
+                            unique_field = rel['field_name']
+
+            # Se não houver unique_field, evite usar ON CONFLICT
+            conflict_clause = sql.SQL("") if unique_field is None else sql.SQL("ON CONFLICT ({unique_field}) DO NOTHING").format(
+                unique_field=sql.Identifier(unique_field)
+            )
 
             query = sql.SQL("""
                 INSERT INTO {table} ({fields})
                 VALUES ({placeholders})
+                {conflict_clause}
             """).format(
                 table=sql.Identifier(model_instance._table_name),
                 fields=sql.SQL(", ").join(map(sql.Identifier, fields)),
-                placeholders=sql.SQL(", ").join(placeholders)
+                placeholders=sql.SQL(", ").join(placeholders),
+                conflict_clause=conflict_clause,
             )
 
             try:
                 with self._conexao.cursor() as cursor:
                     cursor.execute(query, values)
                     self._conexao.commit()
+                    print(f"Instância de {model_instance.__class__.__name__} salva com sucesso.")
             except psycopg2.Error as e:
+                self._conexao.rollback()
                 print(f"Erro ao salvar a instância {model_instance._table_name}: {e}")

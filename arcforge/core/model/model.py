@@ -19,17 +19,29 @@ from arcforge.core.model.relationships import *
 class Model:
     """Classe base para modelos."""
     _table_name = None
-    _relationships = {}
+    _fields = {}
+    _relationships = []
     
     def __init__(self, **kwargs):
         for field, value in kwargs.items():
             setattr(self, field, value)
 
+
+    # @classmethod
+    # def add_relationship(cls, field_name, ref_table, ref_field):
+    #     cls._relationships.append({
+    #         'field_name': field_name,
+    #         'ref_table': ref_table,
+    #         'ref_field': ref_field
+    #     })
+
+
     # Método para gerar os campos da tabela
     @classmethod
     def _generate_fields(cls):
         fields = []
-        
+        unique_constraints = []
+
         # Para cada atributo da classe (campos e relacionamentos)
         for attr, field in cls.__dict__.items():
             # Verifica se é um campo
@@ -39,9 +51,23 @@ class Model:
             # Verifica se é um relacionamento
             elif isinstance(field, RelationshipBase):
                 # Chama o to_sql para gerar o relacionamento
-                fields.append(f"{attr} {field.to_sql()}")
+                if isinstance(field, OneToOne):
+                    fields.append(f"{attr} {field.to_sql()}")
+                    # Adiciona a restrição UNIQUE explicitamente
+                    unique_constraints.append(f"UNIQUE ({attr})")
+                # fields.append(f"{attr} {field.to_sql()}")
+
+                # Armazena o relacionamento em _relationships
+                cls._relationships.append({
+                    "field_name": attr,
+                    "ref_table": field.ref_table,
+                    "ref_field": getattr(field, 'ref_field', None),
+                    "unique": getattr(field, 'unique', False)
+                })
+
         print(fields)
-        return ", ".join(fields)
+        fields_sql = ", ".join(fields + unique_constraints)
+        return fields_sql
 
     
 

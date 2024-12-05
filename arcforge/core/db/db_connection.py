@@ -44,7 +44,7 @@ class DatabaseConnection:
                 self._conexao.commit()
 
             # Configurar relacionamentos Many-to-Many
-            base_model._create_relationships()
+            #base_model._create_relationships()
         except psycopg2.Error as e:
             print(f"Erro ao criar a tabela {base_model._table_name}: {e}")
 

@@ -19,5 +19,5 @@ class Field:
         if self.default is not None:
             sql_fragment += f" DEFAULT {self.default}"
         if self.foreign_key is not None:
-            sql_fragment += f" REFERENCES {self.foreign_key} ON DELETE CASCADE"
+            sql_fragment += f" REFERENCES {self.foreign_key}"
         return sql_fragment

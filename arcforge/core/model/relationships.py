@@ -1,55 +1,26 @@
-# arcforge/core/models/relationships.py
+from arcforge.core.model.relationship_base import *
+from arcforge.core.model.relationshipStrategy import *
 
-def OneToOne(related_class, on_delete="CASCADE"):
-    """Define um relacionamento One-to-One."""
-    def decorator(cls):
-        if not hasattr(cls, "_relationships"):
-            cls._relationships = {}
-        cls._relationships[related_class._table_name] = {
-            "type": "OneToOne",
-            "related_class": related_class,
-            "on_delete": on_delete,
-        }
-        return cls
-    return decorator
+class OneToMany(RelationshipBase):
+    """Relacionamento One to Many."""
+    def to_sql(self):
+        # Relacionamento One to Many (a chave estrangeira estará na tabela "muitos")
+        return f"INTEGER REFERENCES {self.related_class._table_name}(id) ON DELETE {self.on_delete}"
 
+class ManyToOne(RelationshipBase):
+    """Relacionamento Many to One."""
+    def to_sql(self):
+        # Relacionamento Many to One (a chave estrangeira também estará na tabela "muitos")
+        return f"INTEGER REFERENCES {self.related_class._table_name}(id) ON DELETE {self.on_delete}"
 
-def OneToMany(related_class, on_delete="CASCADE"):
-    """Define um relacionamento One-to-Many."""
-    def decorator(cls):
-        if not hasattr(cls, "_relationships"):
-            cls._relationships = {}
-        cls._relationships[related_class._table_name] = {
-            "type": "OneToMany",
-            "related_class": related_class,
-            "on_delete": on_delete,
-        }
-        return cls
-    return decorator
-
-
-def ManyToOne(related_class, on_delete="CASCADE"):
-    """Define um relacionamento Many-to-One."""
-    def decorator(cls):
-        if not hasattr(cls, "_relationships"):
-            cls._relationships = {}
-        cls._relationships[related_class._table_name] = {
-            "type": "ManyToOne",
-            "related_class": related_class,
-            "on_delete": on_delete,
-        }
-        return cls
-    return decorator
-
-
-def ManyToMany(related_class):
-    """Define um relacionamento Many-to-Many."""
-    def decorator(cls):
-        if not hasattr(cls, "_relationships"):
-            cls._relationships = {}
-        cls._relationships[related_class._table_name] = {
-            "type": "ManyToMany",
-            "related_class": related_class,
-        }
-        return cls
-    return decorator
+class OneToOne(RelationshipBase):
+    """Relacionamento One to One."""
+    def to_sql(self):
+        # Relacionamento One to One (a chave estrangeira estará na tabela "um")
+        return f"INTEGER REFERENCES {self.related_class._table_name}(id) ON DELETE {self.on_delete}"
+    
+class ManyToMany(RelationshipBase):
+    """Relacionamento Many to Many."""
+    def to_sql(self):
+        # Relacionamento Many to Many (a chave estrangeira estará na tabela de junção)
+        return f"INTEGER REFERENCES {self.related_class._table_name}(id) ON DELETE {self.on_delete}"

@@ -34,8 +34,9 @@
 # print(users)
 
 
-from arcforge.core.model.base_model import *
+from arcforge.core.model.model import *
 from arcforge.core.db.db_connection import *
+
 
 
 # class Aluno(BaseModel):
@@ -68,28 +69,32 @@ from arcforge.core.db.db_connection import *
 
 
 db_connection = DatabaseConnection()  
-print(db_connection.get_conexao())
 
-
-class Universidade(BaseModel):
+class Universidade(Model):
     _table_name = "universidade"
     id = Field("SERIAL", primary_key=True)
-    nome = Field("VARCHAR",unique=True)
+    nome = Field("VARCHAR")
     endereco = Field("VARCHAR")
+    
 
-class Aluno(BaseModel):
+class Aluno(Model):
     _table_name = "aluno"
     id = Field("SERIAL", primary_key=True)
     nome = Field("VARCHAR")
     idade = Field("INTEGER")
-    universidade = Field("INTEGER", foreign_key="universidade(id)")
+    #universidade = Field("INTEGER", foreign_key="universidade(id)")
+    universidade = OneToMany(Universidade, on_delete="CASCADE")
 
 db_connection.create_table(Universidade)
 db_connection.create_table(Aluno)
 
-u = Universidade(nome="UFSCddddd", endereco="Florianóddddpolis")
-al = Aluno(nome="Gabriel", idade=25, universidade=1)
-
+u = Universidade(nome="UFSCddderrd", endereco="Florianqeqóddddpolis")
+u = Universidade(nome="UFSCwqwqewqeddddd", endereco="Florianóddddpolqweqiddds")
+u = Universidade(nome="UFSCdddwwwwdd", endereco="Floriawwwwnóddddpoliddds")
 db_connection.save(u)
+al = Aluno(nome="GabrielF", idade=25, universidade = 1)
+al = Aluno(nome="GabrielA", idade=25, universidade = 2)
+al = Aluno(nome="GabrielE", idade=25, universidade = 3)
 db_connection.save(al)
+
 

@@ -25,9 +25,15 @@ db_connection.create_table(Endereco)
 a = Aluno(nome= "Lucas",idade= 25)
 db_connection.save(a)
 print("Aluno salvo")
-e = Endereco(logradouro = "joao viera carneiro 980 Pedro Gondim",estado="PB",cidade="Joao Pessoa",aluno= 1)
+print(a.id)
+e = Endereco(logradouro = "joao viera carneiro 980 Pedro Gondim",estado="PB",cidade="Joao Pessoa",aluno= a.id)
 db_connection.save(e)
-print("Endereco salvo")
+print("Primeiro endereco salvo")
+print(e.id)
+# e = Endereco(logradouro = "joao viera carneiro 980 Pedro Gondim",estado="PB",cidade="Joao Pessoa",aluno= 1)
+# db_connection.save(e)
+# print("Segundo endereco salvo")
+
 
 
 

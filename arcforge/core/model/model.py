@@ -52,11 +52,10 @@ class Model:
             elif isinstance(field, RelationshipBase):
                 # Chama o to_sql para gerar o relacionamento
                 if isinstance(field, OneToOne):
-                    fields.append(f"{attr} {field.to_sql()}")
                     # Adiciona a restrição UNIQUE explicitamente
                     unique_constraints.append(f"UNIQUE ({attr})")
                 # fields.append(f"{attr} {field.to_sql()}")
-
+                fields.append(f"{attr} {field.to_sql()}")
                 # Armazena o relacionamento em _relationships
                 cls._relationships.append({
                     "field_name": attr,

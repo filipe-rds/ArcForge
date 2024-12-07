@@ -86,6 +86,7 @@ class DatabaseConnection:
                 INSERT INTO {table} ({fields})
                 VALUES ({placeholders})
                 {conflict_clause}
+                RETURNING id;
             """).format(
                 table=sql.Identifier(model_instance._table_name),
                 fields=sql.SQL(", ").join(map(sql.Identifier, fields)),
@@ -97,6 +98,7 @@ class DatabaseConnection:
                 with self._conexao.cursor() as cursor:
                     cursor.execute(query, values)
                     self._conexao.commit()
+                    model_instance.id = cursor.fetchone()[0]
                     print(f"Instância de {model_instance.__class__.__name__} salva com sucesso.")
             except psycopg2.Error as e:
                 self._conexao.rollback()

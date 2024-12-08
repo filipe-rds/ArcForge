@@ -1,6 +1,7 @@
 import psycopg2
 from psycopg2 import sql
 from arcforge.core.db.config import *
+from arcforge.core.model.model import *
 
 
 class DatabaseConnection:
@@ -103,3 +104,99 @@ class DatabaseConnection:
             except psycopg2.Error as e:
                 self._conexao.rollback()
                 print(f"Erro ao salvar a instância {model_instance._table_name}: {e}")
+
+    # Função que não vai instanciar objetos
+    def query(self, query, params): 
+        """Executa uma consulta no banco de dados."""
+        #self.set_conexao()
+        query = sql.SQL(query)
+        #.format(table=sql.Identifier(model._table_name))
+        try:
+            with self._conexao.cursor() as cursor:
+                cursor.execute(query, params)
+                listaDeRetornos = cursor.fetchall()
+                return listaDeRetornos
+                #return self.transformarArrayEmObjetos(model,listaDeRetornos)
+                    
+        except psycopg2.Error as e:
+            print(f"Erro ao executar a consulta: {e}")
+            return None
+        
+    # Função que vai instanciar 1 ou mais objetos
+    # O ID sempre tem que ser o primeiro atributo
+    def transformarArrayEmObjetos(self, model: Model, listaDeRetornos):
+        listaDeObjetos = []
+        # Percorrer cada retorno da lista
+        for retorno in listaDeRetornos:
+            id = retorno[0]
+            resultado = self.buscarPeloId(model,id)
+            objetoGerado = self.transformarArrayEmUmObjeto(model,resultado)
+            listaDeObjetos.append(objetoGerado)
+        return listaDeObjetos
+    
+    # Retorna um array com os registros da consulta pelo ID
+
+    def buscarPeloId(self, model: Model, id):
+        """Busca uma instância pelo ID."""
+        query = f"SELECT * FROM {model._table_name} WHERE id = %s;"
+        params = [id]
+        try:
+            with self._conexao.cursor() as cursor:
+                cursor.execute(query, params)
+                objeto = cursor.fetchall()
+                    
+        except psycopg2.Error as e:
+            print(f"Erro ao executar a consulta: {e}")
+            return None
+
+        return objeto
+
+    # Uso interno do framework
+
+    def transformarArrayEmUmObjeto(self, model: Model, listaDeRetorno):
+        # Criando uma única instância de model
+        classe = model  
+        objeto = model()
+        
+        # Verificando se a lista de retornos não está vazia
+        if listaDeRetorno:
+            # Pegando o primeiro retorno
+            retorno = listaDeRetorno[0]
+            
+            # Obtendo os atributos da instância
+            atributos = list(vars(classe).keys())
+            print(atributos)
+            
+            # Atribuindo os valores aos atributos
+            for i, atributo in enumerate(atributos[2:-1], start=0):  # Ignorando os dois primeiros atributos
+                print(i)
+                print(atributo)
+                setattr(objeto, atributo, retorno[i])
+        
+        # Retornando a única instância criada
+        return objeto
+    
+    # def buscaPorColuna(self, model: Model, coluna, valor):
+    #     """Busca uma instância pelo valor de uma coluna."""
+    #     query = f"SELECT * FROM {model._table_name} WHERE {coluna} = %s;"
+    #     params = [valor]
+    #     try:
+    #         with self._conexao.cursor() as cursor:
+    #             cursor.execute(query, params)
+    #             return cursor.fetchall()
+    #     except psycopg2.Error as e:
+    #         print(f"Erro ao executar a consulta: {e}")
+    #         return None
+
+
+
+
+
+
+
+
+
+
+
+
+    

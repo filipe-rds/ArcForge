@@ -21,3 +21,10 @@ class Field:
         if self.foreign_key is not None:
             sql_fragment += f" REFERENCES {self.foreign_key}"
         return sql_fragment
+
+    def __str__(self):
+        # Pegando todos os atributos da instância (exceto métodos e atributos especiais)
+        atributos = vars(self)
+        # Criando uma string que mostra o nome do atributo e o valor
+        atributos_str = ", ".join(f"{key}={value}" for key, value in atributos.items())
+        return f"{self.__class__.__name__}({atributos_str})"

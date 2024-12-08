@@ -26,6 +26,20 @@ class Model:
         for field, value in kwargs.items():
             setattr(self, field, value)
 
+    def __str__(self):
+        # Pegando todos os atributos da instância (exceto métodos e atributos especiais)
+        atributos = vars(self)
+        # Criando uma string que mostra o nome do atributo e o valor
+        atributos_str = ", ".join(f"{key}={value}" for key, value in atributos.items())
+        return f"{self.__class__.__name__}({atributos_str})"
+    
+    def __repr__(self):
+        # Pegando todos os atributos da instância (exceto métodos e atributos especiais)
+        atributos = vars(self)
+        # Criando uma string que mostra o nome do atributo e o valor
+        atributos_str = ", ".join(f"{key}={value}" for key, value in atributos.items())
+        return f"{self.__class__.__name__}({atributos_str})"
+
 
     # @classmethod
     # def add_relationship(cls, field_name, ref_table, ref_field):

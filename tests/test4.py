@@ -1,10 +1,7 @@
 from arcforge.core.model.model import *
 from arcforge.core.db.db_connection import *
 
-
-
 db_connection = DatabaseConnection()
-
 
 class Universidade(Model):
     _table_name = "universidade"
@@ -26,15 +23,20 @@ db_connection.create_table(Aluno)
 
 u = Universidade(nome="UFPB",endereco="Joao Pessoa")
 db_connection.save(u)
-print("Universidade salva")
-print(u.id)
+u = Universidade(nome="UFPB",endereco="Joao Pessoa")
+db_connection.save(u)
+#print("Universidade salva")
+#print(u.id)
 a = Aluno(nome= "Lucas",idade= 25,universidade=u.id)
-print("ID do aluno sem ser inserido no banco: ")
-print(a.id)
+#print("ID do aluno sem ser inserido no banco: ")
+#print(a.id)
 db_connection.save(a)
-print("Aluno salvo")
-print(a.id)
+
+a = Aluno(nome= "Lucas",idade= 25,universidade=u.id)
 db_connection.save(a)
+#print("Aluno salvo")
+#print(a.id)
+#db_connection.save(a)
 # u2 = Universidade(nome="UFPE",endereco="Rio de Janeiro")
 # db_connection.save(u2)
 # print("Universidade salva")
@@ -58,4 +60,24 @@ db_connection.save(a)
 # query = f"select x1,x2 from x3 where x4 = x4;"
 
 # realizarConsulta(query,parametros)
+
+id = 1
+
+#consulta = "select u.nome,u.endereco from Universidade u join Aluno a on u.id = a.universidade where a.nome = %s ;"
+consulta = "select nome,id from Aluno where nome = %s ;"
+
+
+params = ["Lucas"]
+
+
+print(db_connection.transformarArrayEmObjetos(Aluno,db_connection.query(consulta,params)))
+
+# u = db_connection.transformarArrayEmObjeto(Universidade,db_connection.buscarPeloId(Universidade,1))
+# print(u.id)
+# print(u.nome)
+# print(u.endereco)
+# print(isinstance(u, Universidade)) 
+# print(u)
+# print(vars(u))
+
 

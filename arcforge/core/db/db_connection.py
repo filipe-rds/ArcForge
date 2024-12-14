@@ -8,6 +8,7 @@ class DatabaseConnection:
     """Gerencia a conexão com o banco de dados e a criação de tabelas."""
     def __init__(self):
         self._conexao = None
+        self.set_conexao()
 
     def set_conexao(self):
         """Estabelece uma conexão com o banco de dados, se ainda não estiver conectada."""
@@ -27,7 +28,6 @@ class DatabaseConnection:
 
     def create_table(self, base_model):
         """Cria a tabela no banco de dados com base no modelo fornecido."""
-        self.set_conexao()
 
         fields = base_model._generate_fields()
         try:
@@ -105,8 +105,9 @@ class DatabaseConnection:
                 self._conexao.rollback()
                 print(f"Erro ao salvar a instância {model_instance._table_name}: {e}")
 
-    # Função que não vai instanciar objetos
-    def query(self, query, params): 
+   # Função que não vai instanciar objetos
+   # Função mais livre para realizar diversos tipos de consulta
+    def query_sql(self, query, params): 
         """Executa uma consulta no banco de dados."""
         #self.set_conexao()
         query = sql.SQL(query)
@@ -121,7 +122,77 @@ class DatabaseConnection:
         except psycopg2.Error as e:
             print(f"Erro ao executar a consulta: {e}")
             return None
+
+
+    # Função mais restrita para realizar consultas
+    # Sempre retorna todos os campos da tabela
+    def query(self, table_name: Model, filters=None, joins=None):
+        """
+        Executa uma consulta no banco de dados com base em filtros e joins.
         
+        :param table_name: Nome da tabela base para a consulta.
+        :param filters: Dicionário de filtros, onde a chave é a coluna e o valor é o valor a ser filtrado.
+        :param joins: Lista de tuplas para joins no formato:
+                    [("tabela_join", "coluna_base", "coluna_join")]
+        :return: Lista de resultados ou None em caso de erro.
+        """
+        try:
+            # Construção da consulta base
+            base_query = sql.SQL("SELECT {table}.* FROM {table}").format(
+                fields=sql.SQL("*"),  # Aqui você pode escolher os campos que deseja selecionar
+                table=sql.Identifier(table_name._table_name)
+            )
+            
+            # Adicionar joins se existirem
+            if joins:
+                join_clauses = []
+                for join_table, base_column, join_column in joins:
+                    join_clause = sql.SQL(
+                        " JOIN {join_table} ON {base_table}.{base_column} = {join_table}.{join_column}"
+                    ).format(
+                        join_table=sql.Identifier(join_table),
+                        base_table=sql.Identifier(table_name._table_name),  # Correção: a tabela base é usada corretamente
+                        base_column=sql.Identifier(base_column),
+                        join_column=sql.Identifier(join_column),
+                    )
+                    join_clauses.append(join_clause)
+                
+                base_query += sql.SQL(" ").join(join_clauses)
+
+            # Adicionar filtros se existirem
+            if filters:
+                filter_clauses = []
+                filter_values = []
+                for column, value in filters.items():
+                    # Aqui, separa a tabela e a coluna para aplicar corretamente
+                    table, column_name = column.split(".")  # Separar tabela e coluna no filtro
+                    filter_clauses.append(sql.SQL("{table}.{column} = %s").format(
+                        table=sql.Identifier(table),
+                        column=sql.Identifier(column_name)
+                    ))
+                    filter_values.append(value)
+                
+                # Adiciona a cláusula WHERE
+                where_clause = sql.SQL(" WHERE ") + sql.SQL(" AND ").join(filter_clauses)
+                base_query += where_clause
+            else:
+                filter_values = []
+
+            # Executar a consulta
+            with self._conexao.cursor() as cursor:
+                # Aqui, o psycopg2 já lida com a interpolação de valores
+                cursor.execute(base_query, filter_values)
+                return cursor.fetchall()
+        
+        except psycopg2.Error as e:
+            print(f"Erro ao executar a consulta: {e}")
+            return None
+
+
+
+
+
+
     # Função que vai instanciar 1 ou mais objetos
     # O ID sempre tem que ser o primeiro atributo
     def transformarArrayEmObjetos(self, model: Model, listaDeRetornos):
@@ -165,12 +236,9 @@ class DatabaseConnection:
             
             # Obtendo os atributos da instância
             atributos = list(vars(classe).keys())
-            print(atributos)
             
             # Atribuindo os valores aos atributos
             for i, atributo in enumerate(atributos[2:-1], start=0):  # Ignorando os dois primeiros atributos
-                print(i)
-                print(atributo)
                 setattr(objeto, atributo, retorno[i])
         
         # Retornando a única instância criada

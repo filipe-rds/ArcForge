@@ -3,11 +3,18 @@ from arcforge.core.db.db_connection import *
 
 db_connection = DatabaseConnection()
 
+
 class Universidade(Model):
     _table_name = "universidade"
     id = Field("SERIAL", primary_key=True)
     nome = Field("VARCHAR")
     endereco = Field("VARCHAR")
+
+class Curso(Model):
+    _table_name = "curso"
+    id = Field("SERIAL", primary_key=True)
+    nome = Field("VARCHAR")
+    universidade = ManyToOne(Universidade, on_delete="CASCADE")
 
 class Aluno(Model):
     _table_name = "aluno"
@@ -16,8 +23,10 @@ class Aluno(Model):
     idade = Field("INTEGER")
     #universidade = Field("INTEGER", foreign_key="universidade(id)")
     universidade = ManyToOne(Universidade, on_delete="CASCADE")
+    curso = ManyToOne(Curso, on_delete="CASCADE")
 
 db_connection.create_table(Universidade)
+db_connection.create_table(Curso)
 db_connection.create_table(Aluno)
 
 
@@ -27,13 +36,18 @@ u = Universidade(nome="UFPB",endereco="Joao Pessoa")
 db_connection.save(u)
 #print("Universidade salva")
 #print(u.id)
-a = Aluno(nome= "Lucas",idade= 25,universidade=u.id)
+
+curso = Curso(nome="Engenharia de Software",universidade=u.id)
+db_connection.save(curso)
+
+a = Aluno(nome= "Lucas",idade= 25,universidade=u.id,curso=curso.id)
 #print("ID do aluno sem ser inserido no banco: ")
 #print(a.id)
 db_connection.save(a)
 
-a = Aluno(nome= "Lucas",idade= 25,universidade=u.id)
+a = Aluno(nome= "Lucas",idade= 25,universidade=u.id,curso=curso.id)
 db_connection.save(a)
+
 #print("Aluno salvo")
 #print(a.id)
 #db_connection.save(a)
@@ -61,16 +75,38 @@ db_connection.save(a)
 
 # realizarConsulta(query,parametros)
 
-id = 1
+# id = 1
 
 #consulta = "select u.nome,u.endereco from Universidade u join Aluno a on u.id = a.universidade where a.nome = %s ;"
-consulta = "select nome,id from Aluno where nome = %s ;"
+# consulta = "select nome,id from Aluno where nome = %s ;"
 
 
-params = ["Lucas"]
+# params = ["Lucas"]
 
 
-print(db_connection.transformarArrayEmObjetos(Aluno,db_connection.query(consulta,params)))
+#print(db_connection.transformarArrayEmObjetos
+#(Aluno,db_connection.query(consulta,params)))
+
+# filter = {"nome": "Lucas", "idade": 25}
+
+#filters = {"curso.nome": "Lucas", "universidade.idade": 25}
+filters = { "aluno.idade": 25}
+
+# joins = [
+#     ("universidade", "universidade", "id"),
+#     ("curso", "curso", "id")  # Ajuste para a coluna correta
+# ]
+
+
+print(db_connection.query(Aluno, filters))
+
+
+print(db_connection.query(Aluno, filters))
+#print(db_connection.transformarArrayEmObjetos(Aluno,db_connection.query(Aluno, filter, joins)))
+
+
+#print(db_connection.transformarArrayEmObjetos(Aluno,db_connection.query(Aluno, params)))
+
 
 # u = db_connection.transformarArrayEmObjeto(Universidade,db_connection.buscarPeloId(Universidade,1))
 # print(u.id)

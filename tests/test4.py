@@ -25,37 +25,42 @@ class Aluno(Model):
     universidade = ManyToOne(Universidade, on_delete="CASCADE")
     curso = ManyToOne(Curso, on_delete="CASCADE")
 
+print("Criando tabela Universidade")
 db_connection.create_table(Universidade)
+print("Tabela Universidade criada")
+print("Criando tabela Curso")
 db_connection.create_table(Curso)
+print("Tabela Curso criada")
 db_connection.create_table(Aluno)
+print("Tabela Aluno criada")
 
 
-u = Universidade(nome="UFPB",endereco="Joao Pessoa")
+print("Inserindo dados")
+u = Universidade(nome="UFPB",endereco= "Joao Pessoa")
+print("Inserindo registro de universidade, nome: UFPB, endereco: Joao Pessoa")
 db_connection.save(u)
-u = Universidade(nome="UFPB",endereco="Joao Pessoa")
-db_connection.save(u)
-#print("Universidade salva")
-#print(u.id)
+print("Registro de universidade inserido")
+u = Universidade(nome="UFPE",endereco="Recife")
+print("Inserindo registro de universidade, nome: UFPE, endereco: Recife")
 
+db_connection.save(u)
+print("Registro de universidade inserido")
 curso = Curso(nome="Engenharia de Software",universidade=u.id)
+print("Inserindo registro de curso, nome: Engenharia de Software, universidade: UFPB")
 db_connection.save(curso)
-
-a = Aluno(nome= "Lucas",idade= 25,universidade=u.id,curso=curso.id)
-#print("ID do aluno sem ser inserido no banco: ")
-#print(a.id)
+a = Aluno(nome= "Lucas", idade= 25,universidade=u.id,curso=curso.id)
+print("Inserindo registro de aluno, nome: Lucas, idade: 25, universidade: UFPB, curso: Engenharia de Software")
 db_connection.save(a)
+print("Registro de aluno inserido")
 
-a = Aluno(nome= "Lucas",idade= 25,universidade=u.id,curso=curso.id)
+print("Aluno salvo")
+print(a.id)
 db_connection.save(a)
-
-#print("Aluno salvo")
-#print(a.id)
-#db_connection.save(a)
-# u2 = Universidade(nome="UFPE",endereco="Rio de Janeiro")
-# db_connection.save(u2)
-# print("Universidade salva")
-# print(u2.id)
-# a2 = Aluno(nome= "Lucas",idade= 25,universidade=u2.id)
+u2 = Universidade(nome="UFPE",endereco="Rio de Janeiro")
+db_connection.save(u2)
+print("Universidade salva")
+print(u2.id)
+a2 = Aluno(nome= "Lucas",idade= 25,universidade=u2.id)
 
 
 # arrayDeParametros = [parametro1,parametro2,parametro3,parametro4,parametro5]
@@ -98,10 +103,10 @@ filters = { "aluno.idade": 25}
 # ]
 
 
-print(db_connection.query(Aluno, filters))
+# print(db_connection.query(Aluno, filters))
 
 
-print(db_connection.query(Aluno, filters))
+# print(db_connection.query(Aluno, filters))
 #print(db_connection.transformarArrayEmObjetos(Aluno,db_connection.query(Aluno, filter, joins)))
 
 

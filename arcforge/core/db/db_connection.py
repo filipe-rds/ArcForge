@@ -1,5 +1,6 @@
 import psycopg2
 from psycopg2 import sql
+from datetime import datetime
 from arcforge.core.db.config import *
 from arcforge.core.model.model import *
 
@@ -52,6 +53,20 @@ class DatabaseConnection:
 
 
     def save(self, model_instance):
+            
+            classe = model_instance.__class__
+
+
+            # Validação de tipos
+            try:
+                self.validationType(classe, model_instance)
+            except (TypeError) as e:
+                # Trate o erro aqui (pode ser log, exibição de mensagem, etc.)
+                raise TypeError(f"Erro ao validar data para o campo': {str(e)}")
+                #raise ValueError(f"Erro ao validar data para o campo': {str(e)}")
+                # Ou outra ação, como lançar o erro ou interromper a execução
+            #self.validationType(classe, model_instance)
+            
             """Salva ou atualiza a instância no banco de dados."""
             fields = []
             values = []
@@ -256,15 +271,58 @@ class DatabaseConnection:
     #         print(f"Erro ao executar a consulta: {e}")
     #         return None
 
+    def validationType(self, model: Model, modelInstance):
+
+        attributes_values = {}
+        atributes_values_classe = {}
 
 
+        for key, value in model.__dict__.items():  # Itera corretamente sobre o dicionário
+            if isinstance(value, Field):  # Verifica se o atributo é uma instância de Field
+                atributes_values_classe[key] = value.field_type
+            elif isinstance(value, RelationshipBase):
+                 atributes_values_classe[key] = None
+        for key, value in modelInstance.__dict__.items():
+                attributes_values[key] = value
 
+        print( atributes_values_classe)
+        print("qwjdfhqwhfuhiweuifvbwey")
+        print(attributes_values)
 
+        for key, value in attributes_values.items():
+                
+            if not atributes_values_classe[key] is None:
+                #if isinstance(value, Field):
+                fieldInstance = value
+                fieldClass = atributes_values_classe[key]
 
+                print("entrou aquii?")
+                # Verifica o tipo do campo
+                if fieldClass.casefold() == "VARCHAR".casefold() or fieldClass.casefold() == "CHAR".casefold():
+                    print("entrou aqui2??")
+                    print(fieldInstance)
+                    print(type(fieldInstance))
+                    if not isinstance(fieldInstance, str):
+                        raise TypeError(f"O '{key}: {value}' deveria ser uma string, mas é {type(fieldInstance).__name__}.")
+                elif fieldClass.casefold() == "INTEGER".casefold():
+                    print("INTEGER")
+                    if not isinstance(fieldInstance, int):
+                        raise TypeError(f"O '{key}: {value}' deveria ser um inteiro, mas é {type(fieldInstance).__name__}.")
+                elif fieldClass.casefold() == "REAL".casefold():
+                    if not isinstance(fieldInstance, float):
+                        raise TypeError(f"O '{key}: {value}' deveria ser um float, mas é {type(fieldInstance).__name__}.")
+                elif fieldClass.casefold() == "BOOLEAN".casefold():
+                    if not isinstance(fieldInstance, bool):
+                        raise TypeError(f"O '{key}: {value}' deveria ser um booleano, mas é {type(fieldInstance).__name__}.")
+                elif fieldClass.casefold() == "DATE".casefold():
+                    try:
+                        datetime.strptime(fieldInstance, "%Y-%m-%d")
+                    except (TypeError):
+                            raise TypeError(f"O '{key}: {value}' deveria estar no formato 'YYYY-MM-DD', mas é '{type(fieldInstance).__name__}'.")
+                    # else:
+                    #     raise ValueError(f"Tipo de campo '{value.field_type}' não suportado para o atributo '{key}'.")
+                #else:
+                    #raise ValueError(f"O atributo '{key}' não é um campo válido.")
+            # except Exception as e:
+            #     print(f"Erro na validação: {e}")
 
-
-
-
-
-
-    

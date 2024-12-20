@@ -61,16 +61,12 @@ class DatabaseConnection:
             
             classe = model_instance.__class__
 
-
             # Validação de tipos
             try:
                 self.validationType(classe, model_instance)
             except (TypeError) as e:
-                # Trate o erro aqui (pode ser log, exibição de mensagem, etc.)
                 raise TypeError(f"Erro ao validar data para o campo': {str(e)}")
-                #raise ValueError(f"Erro ao validar data para o campo': {str(e)}")
-                # Ou outra ação, como lançar o erro ou interromper a execução
-            #self.validationType(classe, model_instance)
+
             
             """Salva ou atualiza a instância no banco de dados."""
             fields = []
@@ -128,12 +124,20 @@ class DatabaseConnection:
     def update(self, model_instance):
         """Função auxiliar para realizar a atualização de um registro no banco de dados."""
 
+        classe = model_instance.__class__
+
+        # Validação de tipos
+        try:
+            self.validationType(classe, model_instance)
+        except (TypeError) as e:
+            raise TypeError(f"Erro ao validar data para o campo': {str(e)}")
+
         model_id = model_instance.id
-        print(model_instance.id)
+        # print(model_instance.id)
         if isinstance(model_id, Field):
             model_id = getattr(model_instance, 'id_field', None)
 
-        print(model_id)
+        # print(model_id)
         if not model_id:
             raise ValueError("Não é possível realizar o UPDATE sem um ID válido.")
 
@@ -164,13 +168,13 @@ class DatabaseConnection:
 
         values.append(model_id)
 
-        # Imprimir a query formatada com valores reais
-        query_string = query.as_string(self._conexao)
-        print("Query com placeholders:", query_string)  # Exibe query com placeholders
-
-        # Substituir placeholders manualmente para ver a consulta com valores reais
-        final_query = query_string % tuple(values)
-        print("Query final com valores reais:", final_query)
+        # # Imprimir a query formatada com valores reais
+        # query_string = query.as_string(self._conexao)
+        # print("Query com placeholders:", query_string)  # Exibe query com placeholders
+        #
+        # # Substituir placeholders manualmente para ver a consulta com valores reais
+        # final_query = query_string % tuple(values)
+        # print("Query final com valores reais:", final_query)
 
         try:
             with self._conexao.cursor() as cursor:
@@ -211,7 +215,7 @@ class DatabaseConnection:
             base_query = sql.SQL("SELECT {base_table}.* FROM {base_table}").format(
                 base_table=sql.Identifier(base_model._table_name)
             )
-            print(f"Base Query: {base_query.as_string(self._conexao)}")  # Passo 1: Exibir base da query
+            # print(f"Base Query: {base_query.as_string(self._conexao)}")  # Passo 1: Exibir base da query
 
             # Inferir joins com base nos relacionamentos do modelo
             join_clauses = []
@@ -237,7 +241,7 @@ class DatabaseConnection:
                     )
                     join_clauses.append(join_clause)
                     joined_tables[ref_table] = True
-                    print(f"Adicionando JOIN: {join_clause.as_string(self._conexao)}")  # Passo 2: Exibir cada JOIN
+                    # print(f"Adicionando JOIN: {join_clause.as_string(self._conexao)}")
 
             # Adicionar filtros
             filter_clauses = []
@@ -263,28 +267,27 @@ class DatabaseConnection:
                         column=sql.Identifier(column)
                     ))
                 filter_values.append(value)
-                print(f"Adicionando Filtro: {column} = {value}")  # Passo 3: Exibir cada filtro
+                # print(f"Adicionando Filtro: {column} = {value}")
 
             # Adicionar cláusula WHERE se houver filtros
             if filter_clauses:
                 where_clause = sql.SQL(" WHERE ") + sql.SQL(" AND ").join(filter_clauses)
             else:
                 where_clause = sql.SQL("")
-            print(f"WHERE Clause: {where_clause.as_string(self._conexao)}")  # Passo 4: Exibir cláusula WHERE
+            # print(f"WHERE Clause: {where_clause.as_string(self._conexao)}")
 
             # Construção final da consulta
             full_query = base_query + sql.SQL(" ").join(join_clauses) + where_clause
-            print(
-                f"Query com Placeholders: {full_query.as_string(self._conexao)}")  # Passo 5: Exibir query com placeholders
+            # print(f"Query com Placeholders: {full_query.as_string(self._conexao)}")
 
             # Substituir placeholders pelos valores reais
             final_query = full_query.as_string(self._conexao) % tuple(filter_values)
-            print(f"Query Final com Valores Reais: {final_query}")  # Passo 6: Exibir query com valores reais
+            # print(f"Query Final com Valores Reais: {final_query}")
 
             # Executar a consulta
             with self._conexao.cursor() as cursor:
                 cursor.execute(full_query, filter_values)
-                return cursor.fetchall()
+                return self.transformarArrayEmObjetos(base_model,cursor.fetchall())
 
         except psycopg.Error as e:
             print(f"Erro ao executar a consulta: {e}")
@@ -319,25 +322,43 @@ class DatabaseConnection:
 
         return objeto
 
+    def buscaObjeto(self, model, id):
+        """Busca uma instância pelo ID."""
+        query = f"SELECT * FROM {model._table_name} WHERE id = %s;"
+        params = [id]
+        try:
+            with self._conexao.cursor() as cursor:
+                cursor.execute(query, params)
+                objeto = cursor.fetchall()
+
+        except psycopg.Error as e:
+            print(f"Erro ao executar a consulta: {e}")
+            return None
+
+        return self.transformarArrayEmUmObjeto(model, objeto)
+
     # Uso interno do framework
 
     def transformarArrayEmUmObjeto(self, model, listaDeRetorno):
         # Criando uma única instância de model
-        classe = model  
+        classe = model
         objeto = model()
-        
+
         # Verificando se a lista de retornos não está vazia
         if listaDeRetorno:
             # Pegando o primeiro retorno
             retorno = listaDeRetorno[0]
-            
+
             # Obtendo os atributos da instância
             atributos = list(vars(classe).keys())
-            
+
             # Atribuindo os valores aos atributos
-            for i, atributo in enumerate(atributos[2:-1], start=0):  # Ignorando os dois primeiros atributos
-                setattr(objeto, atributo, retorno[i])
-        
+            atributos_validos = atributos[3:]
+            tamanho_valido = min(len(atributos_validos), len(retorno))
+            for i, atributo in enumerate(atributos_validos[:tamanho_valido]):
+                # print(f"Atributo: {atributo}, Valor: {retorno[i]}")
+                setattr(objeto, atributo, retorno[i])  # Atribui o valor ao atributo do objeto
+
         # Retornando a única instância criada
         return objeto
 

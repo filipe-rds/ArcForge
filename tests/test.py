@@ -1,5 +1,9 @@
 from arcforge.core.model.model import *
 from arcforge.core.db.connection import *
+from colorama import Fore, Style, init
+
+# Inicializando o colorama
+init(autoreset=True)
 
 db_connection = DatabaseConnection()
 
@@ -15,7 +19,7 @@ class Curso(Model):
     _table_name = "curso"
     id = Field("SERIAL", primary_key=True)
     nome = Field("VARCHAR")
-    universidade = ManyToOne(Universidade, on_delete="CASCADE")
+    universidade = OneToOne(Universidade, on_delete="CASCADE")  # Relacionamento OneToOne
 
 
 class Aluno(Model):
@@ -28,69 +32,78 @@ class Aluno(Model):
 
 
 # Criação de tabelas
-print("\n### Criando tabelas ###")
+print(f"\n{Style.BRIGHT}{Fore.BLUE}=== CRIAÇÃO DE TABELAS ===")
 db_connection.create_table(Universidade)
-print("Tabela Universidade criada")
+print(f"{Fore.GREEN}Tabela 'Universidade' criada com sucesso")
 db_connection.create_table(Curso)
-print("Tabela Curso criada")
+print(f"{Fore.GREEN}Tabela 'Curso' criada com sucesso")
 db_connection.create_table(Aluno)
-print("Tabela Aluno criada")
+print(f"{Fore.GREEN}Tabela 'Aluno' criada com sucesso")
 
 # Inserção de dados
-print("\n### Inserindo dados ###")
+print(f"\n{Style.BRIGHT}{Fore.BLUE}=== INSERÇÃO DE DADOS ===")
+
 # Inserindo universidades
-print("Inserindo Universidade: UFPB")
-ufpb = Universidade(nome="UFPB", endereco="Joao Pessoa")
+print(f"\n{Fore.YELLOW}Inserindo Universidade: {Style.BRIGHT}IFPB")
+ifpb = Universidade(nome="IFPB", endereco="João Pessoa")
+db_connection.save(ifpb)
+print(f"{Fore.GREEN}Registro inserido: {Style.BRIGHT}{ifpb}")
+
+print(f"\n{Fore.YELLOW}Inserindo Universidade: {Style.BRIGHT}UFPB")
+ufpb = Universidade(nome="UFPB", endereco="João Pessoa")
 db_connection.save(ufpb)
-print(f"Registro inserido: {ufpb}")
+print(f"{Fore.GREEN}Registro inserido: {Style.BRIGHT}{ufpb}")
 
-print("Inserindo Universidade: UFPE")
-ufpe = Universidade(nome="UFPE", endereco="Recife")
-db_connection.save(ufpe)
-print(f"Registro inserido: {ufpe}")
+# Inserindo cursos
+print(f"\n{Fore.YELLOW}Inserindo Curso: {Style.BRIGHT}TSI (Universidade: IFPB)")
+curso_tsi = Curso(nome="TSI", universidade=ifpb.id)
+db_connection.save(curso_tsi)
+print(f"{Fore.GREEN}Registro inserido: {Style.BRIGHT}{curso_tsi}")
 
-print("Inserindo Universidade: UFPE (local: Rio de Janeiro)")
-ufpe_rj = Universidade(nome="UFPE", endereco="Rio de Janeiro")
-db_connection.save(ufpe_rj)
-print(f"Registro inserido: {ufpe_rj}")
-
-# Inserindo curso
-print("Inserindo Curso: Engenharia de Software (universidade: UFPE)")
-curso_es = Curso(nome="Engenharia de Software", universidade=ufpe.id)
+print(f"\n{Fore.YELLOW}Inserindo Curso: {Style.BRIGHT}Engenharia de Software (Universidade: UFPB)")
+curso_es = Curso(nome="Engenharia de Software", universidade=ufpb.id)
 db_connection.save(curso_es)
-print(f"Registro inserido: {curso_es}")
+print(f"{Fore.GREEN}Registro inserido: {Style.BRIGHT}{curso_es}")
 
 # Inserindo alunos
-print("Inserindo Aluno: Lucas (universidade: UFPE, curso: Engenharia de Software)")
-aluno_lucas = Aluno(nome="Lucas", idade=25, universidade=ufpe.id, curso=curso_es.id)
-db_connection.save(aluno_lucas)
-print(f"Registro inserido: {aluno_lucas}")
-
-print("Inserindo Aluno: Lucas (universidade: UFPE (RJ), curso: Engenharia de Software)")
-aluno_filipe = Aluno(nome="Lucas", idade=25, universidade=ufpe_rj.id, curso=curso_es.id)
+print(f"\n{Fore.YELLOW}Inserindo Aluno: {Style.BRIGHT}Filipe Rodrigues (Universidade: IFPB, Curso: TSI)")
+aluno_filipe = Aluno(nome="Filipe Rodrigues", idade=25, universidade=ifpb.id, curso=curso_tsi.id)
 db_connection.save(aluno_filipe)
-print(f"Registro inserido: {aluno_filipe}")
+print(f"{Fore.GREEN}Registro inserido: {Style.BRIGHT}{aluno_filipe}")
 
-# Atualizando registro de aluno
-print("\n### Atualizando registro ###")
-aluno_filipe.nome = "Filipe Rodrigues"
+print(f"\n{Fore.YELLOW}Inserindo Aluno: {Style.BRIGHT}Gabriel Félix (Universidade: IFPB, Curso: TSI)")
+aluno_gabriel = Aluno(nome="Gabriel Félix", idade=22, universidade=ifpb.id, curso=curso_tsi.id)
+db_connection.save(aluno_gabriel)
+print(f"{Fore.GREEN}Registro inserido: {Style.BRIGHT}{aluno_gabriel}")
+
+print(f"\n{Fore.YELLOW}Inserindo Aluno: {Style.BRIGHT}Lucas Pedro (Universidade: IFPB, Curso: TSI)")
+aluno_lucas = Aluno(nome="Lucas Pedro", idade=23, universidade=ifpb.id, curso=curso_tsi.id)
+db_connection.save(aluno_lucas)
+print(f"{Fore.GREEN}Registro inserido: {Style.BRIGHT}{aluno_lucas}")
+
+# Atualização de um aluno (opcional)
+print(f"\n{Style.BRIGHT}{Fore.BLUE}=== ATUALIZAÇÃO DE REGISTRO ===")
+aluno_filipe.idade = 22
 db_connection.update(aluno_filipe)
-print(f"Aluno atualizado: {aluno_filipe}")
+print(f"{Fore.GREEN}Aluno atualizado: {Style.BRIGHT}{aluno_filipe}")
 
 # Consultando os dados
-print("\n### Consultando dados ###")
+print(f"\n{Style.BRIGHT}{Fore.BLUE}=== CONSULTA DE DADOS ===")
+print(f"\n{Fore.YELLOW} {Style.BRIGHT}Consultando alunos da universidade IFPB que estão no curso de TSI")
 result = db_connection.query(
     Aluno,
-    universidade_endereco="Rio de Janeiro",
-    curso_nome="Engenharia de Software",
-    aluno_nome="Filipe Rodrigues"
+    universidade_nome="IFPB",
+    curso_nome="TSI",
 )
-print(f"Resultado da consulta: {result}")
 
-# Validando resultado
+# Exibindo os resultados
 if result:
-    print("\n### Dados retornados da consulta ###")
-    for row in result:
-        print(row)
+    print(f"\n{Fore.GREEN}Resultado encontrado para os critérios fornecidos:\n")
+    print(f"{Style.BRIGHT}{Fore.MAGENTA}ID | Nome              | Idade | Universidade        | Curso")
+    print(f"{Style.BRIGHT}{Fore.MAGENTA}---+-------------------+-------+---------------------+-------------------------")
+
+    for aluno in result:
+        # Exibindo as informações do aluno
+        print(f"{aluno.id:<3} | {aluno.nome:<18} | {aluno.idade:<5} | {aluno.universidade:<20} | {aluno.curso}")
 else:
-    print("Nenhum resultado encontrado para os critérios fornecidos.")
+    print(f"{Fore.RED}Nenhum resultado encontrado para os critérios fornecidos.")

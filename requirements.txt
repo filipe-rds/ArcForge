@@ -1,2 +1,3 @@
 python-dotenv
 psycopg[binary]
+colorama

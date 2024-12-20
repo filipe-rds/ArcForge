@@ -2,8 +2,8 @@ import os
 from dotenv import load_dotenv
 
 # Carregar variáveis de ambiente do arquivo .env
-print(os.path.exists('config.env'))
-print(load_dotenv())
+# print(os.path.exists('config.env'))
+load_dotenv()
 
 # Variáveis de ambiente para parâmetros de conexão
 DB_NAME = os.getenv("DB_NAME",)

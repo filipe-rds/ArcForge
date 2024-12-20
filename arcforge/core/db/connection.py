@@ -1,5 +1,5 @@
-import psycopg2
-from psycopg2 import sql
+import psycopg
+from psycopg import sql
 from datetime import datetime
 from arcforge.core.db.config import *
 from arcforge.core.model.model import *
@@ -7,14 +7,23 @@ from arcforge.core.model.model import *
 
 class DatabaseConnection:
     """Gerencia a conexão com o banco de dados e a criação de tabelas."""
+    _instance = None  # Atributo estático para armazenar a única instância
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(DatabaseConnection, cls).__new__(cls)
+        return cls._instance
+
     def __init__(self):
-        self._conexao = None
-        self.set_conexao()
+        if not hasattr(self, "_initialized"):
+            self._conexao = None
+            self.set_conexao()
+            self._initialized = True  # Evita reinicialização na mesma instância
 
     def set_conexao(self):
         """Estabelece uma conexão com o banco de dados, se ainda não estiver conectada."""
         if self._conexao is None:
-            self._conexao = psycopg2.connect(
+            self._conexao = psycopg.connect(
                 host=DB_HOST,
                 dbname=DB_NAME,
                 user=DB_USER,
@@ -29,7 +38,6 @@ class DatabaseConnection:
 
     def create_table(self, base_model):
         """Cria a tabela no banco de dados com base no modelo fornecido."""
-
         fields = base_model._generate_fields()
         try:
             create_table_query = sql.SQL("""
@@ -44,10 +52,7 @@ class DatabaseConnection:
             with self._conexao.cursor() as cursor:
                 cursor.execute(create_table_query)
                 self._conexao.commit()
-
-            # Configurar relacionamentos Many-to-Many
-            #base_model._create_relationships()
-        except psycopg2.Error as e:
+        except psycopg.Error as e:
             print(f"Erro ao criar a tabela {base_model._table_name}: {e}")
 
 
@@ -116,9 +121,66 @@ class DatabaseConnection:
                     self._conexao.commit()
                     model_instance.id = cursor.fetchone()[0]
                     print(f"Instância de {model_instance.__class__.__name__} salva com sucesso.")
-            except psycopg2.Error as e:
+            except psycopg.Error as e:
                 self._conexao.rollback()
                 print(f"Erro ao salvar a instância {model_instance._table_name}: {e}")
+
+    def update(self, model_instance):
+        """Função auxiliar para realizar a atualização de um registro no banco de dados."""
+
+        model_id = model_instance.id
+        print(model_instance.id)
+        if isinstance(model_id, Field):
+            model_id = getattr(model_instance, 'id_field', None)
+
+        print(model_id)
+        if not model_id:
+            raise ValueError("Não é possível realizar o UPDATE sem um ID válido.")
+
+        fields = []
+        values = []
+        set_clause = []
+
+        # Extrai os atributos e valores do modelo
+        for attr, value in model_instance.__dict__.items():
+            if isinstance(value, Field) or attr == "id":
+                continue
+
+            fields.append(attr)
+            values.append(value)
+            set_clause.append(sql.SQL("{} = {}").format(
+                sql.Identifier(attr), sql.Placeholder()
+            ))
+
+        query = sql.SQL("""
+            UPDATE {table}
+            SET {set_clause}
+            WHERE id = {id}
+        """).format(
+            table=sql.Identifier(model_instance._table_name),
+            set_clause=sql.SQL(", ").join(set_clause),
+            id=sql.Placeholder()
+        )
+
+        values.append(model_id)
+
+        # Imprimir a query formatada com valores reais
+        query_string = query.as_string(self._conexao)
+        print("Query com placeholders:", query_string)  # Exibe query com placeholders
+
+        # Substituir placeholders manualmente para ver a consulta com valores reais
+        final_query = query_string % tuple(values)
+        print("Query final com valores reais:", final_query)
+
+        try:
+            with self._conexao.cursor() as cursor:
+                cursor.execute(query, values)
+                self._conexao.commit()
+                return model_instance
+        except psycopg.Error as e:
+            self._conexao.rollback()
+            print(f"Erro ao atualizar a instância {model_instance._table_name}: {e}")
+            return None
 
    # Função que não vai instanciar objetos
    # Função mais livre para realizar diversos tipos de consulta
@@ -134,83 +196,103 @@ class DatabaseConnection:
                 return listaDeRetornos
                 #return self.transformarArrayEmObjetos(model,listaDeRetornos)
                     
-        except psycopg2.Error as e:
+        except psycopg.Error as e:
             print(f"Erro ao executar a consulta: {e}")
             return None
 
 
-    # Função mais restrita para realizar consultas
-    # Sempre retorna todos os campos da tabela
-    def query(self, table_name: Model, filters=None, joins=None):
+    def query(self, base_model, **filters):
         """
-        Executa uma consulta no banco de dados com base em filtros e joins.
-        
-        :param table_name: Nome da tabela base para a consulta.
-        :param filters: Dicionário de filtros, onde a chave é a coluna e o valor é o valor a ser filtrado.
-        :param joins: Lista de tuplas para joins no formato:
-                    [("tabela_join", "coluna_base", "coluna_join")]
-        :return: Lista de resultados ou None em caso de erro.
+        Executa uma consulta no banco de dados com base nos filtros e inferindo os joins automaticamente.
+        Inclui depuração para cada etapa da construção da consulta.
         """
         try:
             # Construção da consulta base
-            base_query = sql.SQL("SELECT {table}.* FROM {table}").format(
-                fields=sql.SQL("*"),  # Aqui você pode escolher os campos que deseja selecionar
-                table=sql.Identifier(table_name._table_name)
+            base_query = sql.SQL("SELECT {base_table}.* FROM {base_table}").format(
+                base_table=sql.Identifier(base_model._table_name)
             )
-            
-            # Adicionar joins se existirem
-            if joins:
-                join_clauses = []
-                for join_table, base_column, join_column in joins:
+            print(f"Base Query: {base_query.as_string(self._conexao)}")  # Passo 1: Exibir base da query
+
+            # Inferir joins com base nos relacionamentos do modelo
+            join_clauses = []
+            relationships = base_model._relationships if hasattr(base_model, "_relationships") else []
+
+            # Mapear tabelas já incluídas para evitar joins duplicados
+            joined_tables = {base_model._table_name: True}
+
+            for rel in relationships:
+                ref_table = rel["ref_table"]
+                base_column = rel["field_name"]
+                ref_field = "id"  # Campo padrão de referência é "id"
+
+                # Adicionar cláusula de JOIN
+                if ref_table not in joined_tables:
                     join_clause = sql.SQL(
-                        " JOIN {join_table} ON {base_table}.{base_column} = {join_table}.{join_column}"
+                        " JOIN {ref_table} ON {base_table}.{base_column} = {ref_table}.{ref_field}"
                     ).format(
-                        join_table=sql.Identifier(join_table),
-                        base_table=sql.Identifier(table_name._table_name),  # Correção: a tabela base é usada corretamente
+                        ref_table=sql.Identifier(ref_table),
+                        base_table=sql.Identifier(base_model._table_name),
                         base_column=sql.Identifier(base_column),
-                        join_column=sql.Identifier(join_column),
+                        ref_field=sql.Identifier(ref_field)
                     )
                     join_clauses.append(join_clause)
-                
-                base_query += sql.SQL(" ").join(join_clauses)
+                    joined_tables[ref_table] = True
+                    print(f"Adicionando JOIN: {join_clause.as_string(self._conexao)}")  # Passo 2: Exibir cada JOIN
 
-            # Adicionar filtros se existirem
-            if filters:
-                filter_clauses = []
-                filter_values = []
-                for column, value in filters.items():
-                    # Aqui, separa a tabela e a coluna para aplicar corretamente
-                    table, column_name = column.split(".")  # Separar tabela e coluna no filtro
+            # Adicionar filtros
+            filter_clauses = []
+            filter_values = []
+
+            for column, value in filters.items():
+                # Suporte a tabela_coluna => converte para tabela.coluna
+                if "_" in column and "." not in column:
+                    table, column_name = column.split("_", 1)
+                    column = f"{table}.{column_name}"
+
+                if "." in column:
+                    # Filtro em uma tabela relacionada (tabela.coluna)
+                    table, column_name = column.split(".")
                     filter_clauses.append(sql.SQL("{table}.{column} = %s").format(
                         table=sql.Identifier(table),
                         column=sql.Identifier(column_name)
                     ))
-                    filter_values.append(value)
-                
-                # Adiciona a cláusula WHERE
+                else:
+                    # Filtro na tabela principal
+                    filter_clauses.append(sql.SQL("{table}.{column} = %s").format(
+                        table=sql.Identifier(base_model._table_name),
+                        column=sql.Identifier(column)
+                    ))
+                filter_values.append(value)
+                print(f"Adicionando Filtro: {column} = {value}")  # Passo 3: Exibir cada filtro
+
+            # Adicionar cláusula WHERE se houver filtros
+            if filter_clauses:
                 where_clause = sql.SQL(" WHERE ") + sql.SQL(" AND ").join(filter_clauses)
-                base_query += where_clause
             else:
-                filter_values = []
+                where_clause = sql.SQL("")
+            print(f"WHERE Clause: {where_clause.as_string(self._conexao)}")  # Passo 4: Exibir cláusula WHERE
+
+            # Construção final da consulta
+            full_query = base_query + sql.SQL(" ").join(join_clauses) + where_clause
+            print(
+                f"Query com Placeholders: {full_query.as_string(self._conexao)}")  # Passo 5: Exibir query com placeholders
+
+            # Substituir placeholders pelos valores reais
+            final_query = full_query.as_string(self._conexao) % tuple(filter_values)
+            print(f"Query Final com Valores Reais: {final_query}")  # Passo 6: Exibir query com valores reais
 
             # Executar a consulta
             with self._conexao.cursor() as cursor:
-                # Aqui, o psycopg2 já lida com a interpolação de valores
-                cursor.execute(base_query, filter_values)
+                cursor.execute(full_query, filter_values)
                 return cursor.fetchall()
-        
-        except psycopg2.Error as e:
+
+        except psycopg.Error as e:
             print(f"Erro ao executar a consulta: {e}")
             return None
 
-
-
-
-
-
     # Função que vai instanciar 1 ou mais objetos
     # O ID sempre tem que ser o primeiro atributo
-    def transformarArrayEmObjetos(self, model: Model, listaDeRetornos):
+    def transformarArrayEmObjetos(self, model, listaDeRetornos):
         listaDeObjetos = []
         # Percorrer cada retorno da lista
         for retorno in listaDeRetornos:
@@ -222,7 +304,7 @@ class DatabaseConnection:
     
     # Retorna um array com os registros da consulta pelo ID
 
-    def buscarPeloId(self, model: Model, id):
+    def buscarPeloId(self, model, id):
         """Busca uma instância pelo ID."""
         query = f"SELECT * FROM {model._table_name} WHERE id = %s;"
         params = [id]
@@ -231,7 +313,7 @@ class DatabaseConnection:
                 cursor.execute(query, params)
                 objeto = cursor.fetchall()
                     
-        except psycopg2.Error as e:
+        except psycopg.Error as e:
             print(f"Erro ao executar a consulta: {e}")
             return None
 
@@ -239,7 +321,7 @@ class DatabaseConnection:
 
     # Uso interno do framework
 
-    def transformarArrayEmUmObjeto(self, model: Model, listaDeRetorno):
+    def transformarArrayEmUmObjeto(self, model, listaDeRetorno):
         # Criando uma única instância de model
         classe = model  
         objeto = model()
@@ -258,20 +340,9 @@ class DatabaseConnection:
         
         # Retornando a única instância criada
         return objeto
-    
-    # def buscaPorColuna(self, model: Model, coluna, valor):
-    #     """Busca uma instância pelo valor de uma coluna."""
-    #     query = f"SELECT * FROM {model._table_name} WHERE {coluna} = %s;"
-    #     params = [valor]
-    #     try:
-    #         with self._conexao.cursor() as cursor:
-    #             cursor.execute(query, params)
-    #             return cursor.fetchall()
-    #     except psycopg2.Error as e:
-    #         print(f"Erro ao executar a consulta: {e}")
-    #         return None
 
-    def validationType(self, model: Model, modelInstance):
+
+    def validationType(self, model, modelInstance):
 
         attributes_values = {}
         atributes_values_classe = {}
@@ -280,32 +351,22 @@ class DatabaseConnection:
         for key, value in model.__dict__.items():  # Itera corretamente sobre o dicionário
             if isinstance(value, Field):  # Verifica se o atributo é uma instância de Field
                 atributes_values_classe[key] = value.field_type
-            elif isinstance(value, RelationshipBase):
+            elif isinstance(value, Relationship):
                  atributes_values_classe[key] = None
         for key, value in modelInstance.__dict__.items():
                 attributes_values[key] = value
 
-        print( atributes_values_classe)
-        print("qwjdfhqwhfuhiweuifvbwey")
-        print(attributes_values)
-
         for key, value in attributes_values.items():
                 
             if not atributes_values_classe[key] is None:
-                #if isinstance(value, Field):
                 fieldInstance = value
                 fieldClass = atributes_values_classe[key]
 
-                print("entrou aquii?")
                 # Verifica o tipo do campo
                 if fieldClass.casefold() == "VARCHAR".casefold() or fieldClass.casefold() == "CHAR".casefold():
-                    print("entrou aqui2??")
-                    print(fieldInstance)
-                    print(type(fieldInstance))
                     if not isinstance(fieldInstance, str):
                         raise TypeError(f"O '{key}: {value}' deveria ser uma string, mas é {type(fieldInstance).__name__}.")
                 elif fieldClass.casefold() == "INTEGER".casefold():
-                    print("INTEGER")
                     if not isinstance(fieldInstance, int):
                         raise TypeError(f"O '{key}: {value}' deveria ser um inteiro, mas é {type(fieldInstance).__name__}.")
                 elif fieldClass.casefold() == "REAL".casefold():

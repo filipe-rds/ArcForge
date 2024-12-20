@@ -1,100 +1,96 @@
-# from arcforge.core.model.base_model import *
-
-#from arcforge.core.model.base_model import *
-
-# class User(BaseModel):
-#     _table_name = "departamento"
-#     id = Field("SERIAL", primary_key=True)
-#     name = Field("VARCHAR", nullable=False)
-#     email = Field("VARCHAR", unique=True, nullable=False)
-
-
-# class Escola(BaseModel):
-#     _table_name = "setor"
-#     id = Field("SERIAL", primary_key=True)
-#     name = Field("VARCHAR", nullable=False)
-#     email = Field("VARCHAR", unique=True, nullable=False)
-
-
-# # Conectar e Criar Tabela
-# User.set_conexao()
-# User.create_table()
-# new_user = User(codigoid = 4022222024,name="Alice", email="alieeeeeeecewqqwewqddddde@eeexaeeemple.com")
-# new_user.save()
-
-# Escola.create_table()
-# new_user1 = Escola(codigoid = 4022222024,name="Alice", email="alieeeeeeecewqqwewqddddde@eeexaeeemple.com")
-# new_user1.save()
-
-
-
-
-# # Consultar Dados
-# users = User.filter(name="Alice")
-# print(users)
-
-
 from arcforge.core.model.model import *
-from arcforge.core.db.db_connection import *
+from arcforge.core.db.connection import *
 
+db_connection = DatabaseConnection()
 
-
-# class Aluno(BaseModel):
-#     _table_name = "aluno"
-#     id = Field("SERIAL", primary_key=True)
-#     nome = Field("VARCHAR")
-#     idade = Field("INTEGER")
-
-
-# class Escola(BaseModel):
-#     _table_name = "escola"
-#     id = Field("SERIAL", primary_key=True)
-#     nome = Field("VARCHAR")
-#     endereco = Field("VARCHAR")
-
-# Cria uma instância de conexão com o banco de dados
-
-# print("entrou aqui")
-# # Cria as tabelas de Aluno e Escola
-# db_connection.create_table(Aluno)
-# print("criou aluno")
-# db_connection.create_table(Escola)
-# print("criou escola")
-
-# Cria uma instância de Aluno
-# aluno = Aluno(nome="Gabriel", idade=25)
-# db_connection.save(aluno)
-
-
-
-
-db_connection = DatabaseConnection()  
 
 class Universidade(Model):
     _table_name = "universidade"
     id = Field("SERIAL", primary_key=True)
     nome = Field("VARCHAR")
     endereco = Field("VARCHAR")
-    
+
+
+class Curso(Model):
+    _table_name = "curso"
+    id = Field("SERIAL", primary_key=True)
+    nome = Field("VARCHAR")
+    universidade = ManyToOne(Universidade, on_delete="CASCADE")
+
 
 class Aluno(Model):
     _table_name = "aluno"
     id = Field("SERIAL", primary_key=True)
     nome = Field("VARCHAR")
     idade = Field("INTEGER")
-    #universidade = Field("INTEGER", foreign_key="universidade(id)")
-    universidade = OneToMany(Universidade, on_delete="CASCADE")
+    universidade = ManyToOne(Universidade, on_delete="CASCADE")
+    curso = ManyToOne(Curso, on_delete="CASCADE")
 
+
+# Criação de tabelas
+print("\n### Criando tabelas ###")
 db_connection.create_table(Universidade)
+print("Tabela Universidade criada")
+db_connection.create_table(Curso)
+print("Tabela Curso criada")
 db_connection.create_table(Aluno)
+print("Tabela Aluno criada")
 
-u = Universidade(nome="UFSCddderrd", endereco="Florianqeqóddddpolis")
-u = Universidade(nome="UFSCwqwqewqeddddd", endereco="Florianóddddpolqweqiddds")
-u = Universidade(nome="UFSCdddwwwwdd", endereco="Floriawwwwnóddddpoliddds")
-db_connection.save(u)
-al = Aluno(nome="GabrielF", idade=25, universidade = 1)
-al = Aluno(nome="GabrielA", idade=25, universidade = 2)
-al = Aluno(nome="GabrielE", idade=25, universidade = 3)
-db_connection.save(al)
+# Inserção de dados
+print("\n### Inserindo dados ###")
+# Inserindo universidades
+print("Inserindo Universidade: UFPB")
+ufpb = Universidade(nome="UFPB", endereco="Joao Pessoa")
+db_connection.save(ufpb)
+print(f"Registro inserido: {ufpb}")
 
+print("Inserindo Universidade: UFPE")
+ufpe = Universidade(nome="UFPE", endereco="Recife")
+db_connection.save(ufpe)
+print(f"Registro inserido: {ufpe}")
 
+print("Inserindo Universidade: UFPE (local: Rio de Janeiro)")
+ufpe_rj = Universidade(nome="UFPE", endereco="Rio de Janeiro")
+db_connection.save(ufpe_rj)
+print(f"Registro inserido: {ufpe_rj}")
+
+# Inserindo curso
+print("Inserindo Curso: Engenharia de Software (universidade: UFPE)")
+curso_es = Curso(nome="Engenharia de Software", universidade=ufpe.id)
+db_connection.save(curso_es)
+print(f"Registro inserido: {curso_es}")
+
+# Inserindo alunos
+print("Inserindo Aluno: Lucas (universidade: UFPE, curso: Engenharia de Software)")
+aluno_lucas = Aluno(nome="Lucas", idade=25, universidade=ufpe.id, curso=curso_es.id)
+db_connection.save(aluno_lucas)
+print(f"Registro inserido: {aluno_lucas}")
+
+print("Inserindo Aluno: Lucas (universidade: UFPE (RJ), curso: Engenharia de Software)")
+aluno_filipe = Aluno(nome="Lucas", idade=25, universidade=ufpe_rj.id, curso=curso_es.id)
+db_connection.save(aluno_filipe)
+print(f"Registro inserido: {aluno_filipe}")
+
+# Atualizando registro de aluno
+print("\n### Atualizando registro ###")
+aluno_filipe.nome = "Filipe Rodrigues"
+db_connection.update(aluno_filipe)
+print(f"Aluno atualizado: {aluno_filipe}")
+
+# Consultando os dados
+print("\n### Consultando dados ###")
+result = db_connection.query(
+    Aluno,
+    universidade_endereco="Rio de Janeiro",
+    curso_nome="Engenharia de Software",
+    aluno_nome="Filipe Rodrigues"
+)
+print(f"Resultado da consulta: {result}")
+
+# Validando resultado
+if result:
+    print("\n### Dados retornados da consulta ###")
+    for row in result:
+        print(row)
+else:
+    print("Nenhum resultado encontrado para os critérios fornecidos.")

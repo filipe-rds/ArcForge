@@ -1,7 +1,7 @@
-import psycopg2
+import psycopg
 
 try:
-    connection = psycopg2.connect(
+    connection = psycopg.connect(
         host="localhost",
         dbname="test",
         user="postgres",

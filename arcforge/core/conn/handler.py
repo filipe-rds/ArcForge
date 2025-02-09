@@ -86,7 +86,7 @@ class RouteHandler(BaseHandler):
             route = self.routes[self.path]
 
             if "html" in route:
-                self._serve_html(route["template"])
+                self._serve_html(route["html"])
             elif "json" in route:
                 self._serve_json(route["json"])
         else:

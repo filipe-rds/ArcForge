@@ -1,65 +1,33 @@
-from arcforge.core.model.model import *
-from arcforge.core.db.connection import *
-from datetime import datetime
+import unittest
+import psycopg
 from colorama import Fore, Style, init
 
-# Inicializando o colorama
+# Inicializando o colorama para visualização de mensagens coloridas (opcional)
 init(autoreset=True)
 
-db_connection = DatabaseConnection()
+class TestDBConnection(unittest.TestCase):
+    def test_connection(self):
+        """
+        Testa se é possível estabelecer uma conexão com o banco de dados PostgreSQL.
 
-# Modelando os campos com tipos diversos
-class Aluno(Model):
-    _table_name = "aluno"
-    id = Field("SERIAL", primary_key=True)
-    nome = Field("VARCHAR")
-    idade = Field("INTEGER")
-    nota = Field("REAL")
-    data_nascimento = Field("DATE")
-    ativo = Field("BOOLEAN")
+        Padrão Aplicado:
+        - Facade: A API do psycopg encapsula a complexidade de estabelecer a conexão.
+        - TDD: O teste verifica se a conexão é estabelecida com sucesso; caso contrário, falha.
+        """
+        try:
+            connection = psycopg.connect(
+                host="localhost",
+                dbname="test",
+                user="postgres",
+                password="ifpb",
+                port=5432
+            )
+            # Verifica se a conexão foi criada com sucesso.
+            self.assertIsNotNone(connection, "A conexão não deve ser None")
+            print(f"{Fore.GREEN}{Style.BRIGHT}Conexão bem-sucedida com o PostgreSQL!")
+            connection.close()
+        except Exception as e:
+            self.fail(f"{Fore.RED}{Style.BRIGHT}Erro ao conectar ao PostgreSQL: {e}")
 
-# Criação da tabela Aluno
-print(f"\n{Style.BRIGHT}{Fore.BLUE}=== CRIAÇÃO DE TABELA ===")
-db_connection.create_table(Aluno)
-print(f"{Fore.GREEN}Tabela 'Aluno' criada com sucesso")
-
-# Inserção de dados
-print(f"\n{Style.BRIGHT}{Fore.BLUE}=== INSERÇÃO DE DADOS ===")
-
-# Dados válidos
-print(f"\n{Fore.YELLOW}Inserindo Aluno: {Style.BRIGHT}Carlos Silva (Idade: 20, Nota: 8.5, Nascimento: 2003-05-10, Ativo: True)")
-aluno_carlos = Aluno(nome="Carlos Silva", idade=20, nota=8.5, data_nascimento='2003-05-10', ativo=True)
-
-# Tentando salvar os dados
-try:
-    db_connection.save(aluno_carlos)
-    print(f"{Fore.GREEN}Registro inserido com sucesso: {Style.BRIGHT}{aluno_carlos}")
-except Exception as e:
-    print(f"{Fore.RED}Erro ao inserir dados: {e}")
-
-# Dados inválidos
-print(f"\n{Fore.YELLOW}Inserindo Aluno com dados inválidos (Idade: 17, Nota: 11.0, Data de Nascimento: formato inválido, Ativo: True)")
-
-aluno_invalido = Aluno(nome="João Costa", idade=17, nota=11.0, data_nascimento='05/10/2003', ativo=True)
-
-# Tentando salvar os dados inválidos
-try:
-    db_connection.save(aluno_invalido)
-    print(f"{Fore.GREEN}Registro inserido com sucesso: {Style.BRIGHT}{aluno_invalido}")
-except Exception as e:
-    print(f"{Fore.RED}Erro ao inserir dados: {e}")
-
-# Consultando os dados
-print(f"\n{Style.BRIGHT}{Fore.BLUE}=== CONSULTA DE DADOS ===")
-print(f"\n{Fore.YELLOW}Consultando todos os alunos")
-result = db_connection.query(Aluno)
-
-if result:
-    print(f"\n{Fore.GREEN}Resultado encontrado para os alunos cadastrados:\n")
-    print(f"{Style.BRIGHT}{Fore.MAGENTA}ID | Nome               | Idade | Nota  | Data Nascimento | Ativo")
-    print(f"{Style.BRIGHT}{Fore.MAGENTA}---+--------------------+-------+-------+------------------+-------")
-
-    for aluno in result:
-        print(f"{aluno.id:<3} | {aluno.nome:<18} | {aluno.idade:<5} | {aluno.nota:<5} | {aluno.data_nascimento} | {aluno.ativo}")
-else:
-    print(f"{Fore.RED}Nenhum aluno encontrado.")
+if __name__ == "__main__":
+    unittest.main()

@@ -114,6 +114,13 @@ class Model:
         """Representação única para __str__ e __repr__."""
         attrs = ", ".join(f"{k}={v}" for k, v in vars(self).items())
         return f"{self.__class__.__name__}({attrs})"
+    
+    def to_dict(self):
+        """
+        Converte o objeto atual em um dicionário, pegando todos os atributos da instância,
+        incluindo os atributos privados e quaisquer atributos adicionais.
+        """
+        return {key: value for key, value in self.__dict__.items()}
 
 
 # -----------------------------------------------------------------------------

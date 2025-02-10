@@ -5,7 +5,6 @@ import os
 
 class BaseHandler(BaseHTTPRequestHandler, ABC):
 
-
     @abstractmethod
     def do_GET(self):
         pass
@@ -13,7 +12,6 @@ class BaseHandler(BaseHTTPRequestHandler, ABC):
     @abstractmethod
     def do_POST(self):
         pass
-
 
 class MyRequestHandler(BaseHandler):
    
@@ -122,6 +120,7 @@ class RouteHandler(BaseHandler):
 
     def _serve_json(self, data):
         try:
+            #print(data)
             json_content = json.dumps(data, indent=4, ensure_ascii=False)  # Formata o JSON
             self.send_response(200)
             self.send_header("Content-type", "application/json; charset=utf-8")

@@ -48,7 +48,8 @@ def test_update_pedido(pedido1):
     print(f"{Fore.GREEN}Pedido atualizado: {Style.BRIGHT}{pedido_atualizado}")
 
 def test_query_pedidos():
-    result = db.query(Pedido, cliente_nome="João Silva")
+    result = db.query(Pedido)
+    #result = db.query(Pedido, cliente_nome="João Silva")
     print(f"\n{Fore.GREEN}Resultado da consulta:")
     for pedido in result:
         print(f"{pedido.id:<3} | {pedido.descricao:<25} | {pedido.cliente}")

@@ -8,7 +8,7 @@ class Response:
     def __init__(self,status=200 ,data=None, content_type="application/json", headers=None):
         self.status = status
         self.content_type = content_type
-        self.body = json.dumps(data)
+        self.body = self._serialize_data(data)
         self.headers = headers if headers else {}
 
     def to_http_response(self):
@@ -25,10 +25,16 @@ class Response:
             return ""
         if self.content_type == "application/json":
             try:
-                return json.dumps(data)
+                return json.dumps(data, default=self._default_serializer)
             except (TypeError, ValueError):
                 raise ValueError("Erro ao serializar os dados em JSON.")
         return str(data)
+    
+    @staticmethod
+    def _default_serializer(obj):
+        if hasattr(obj, "__dict__"):  # Converte objetos com atributos em dicionários
+            return obj.__dict__
+        raise TypeError(f"Objeto {obj} não é serializável em JSON.")
     
     @staticmethod
     def _get_status_message(status):
@@ -51,3 +57,17 @@ class Response:
 dados = {"mensagem": "Olá, Gabriel!", "sucesso": True}
 resposta = Response(status=201,data=dados)
 print(resposta.to_http_response())
+
+print()
+
+class User:
+    def __init__(self, id, name):
+        self.id = id
+        self.name = name
+
+# Lista de objetos User
+users = [User(1, "Alice"), User(2, "Bob")]
+
+res = Response(status=200,data=users)
+
+print(res.to_http_response())

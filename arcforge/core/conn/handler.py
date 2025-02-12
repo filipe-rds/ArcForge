@@ -46,93 +46,52 @@ class RouteHandler(BaseHandler):
   
     # Mapeamento de rotas GET (equivalente ao @GetMapping)
     routes = {}
-       
+
     @classmethod
-    def add_route(cls, path, file_path=None, json_response=None):
+    def add_route(cls, path, methods=None):
         """
-        Registra uma rota, podendo ser uma página HTML ou um JSON carregado de um arquivo.
+        Registra uma rota com funções específicas para diferentes métodos HTTP.
 
-        :param path: Caminho da URL (ex: "/sobre")
-        :param file_path: Caminho do arquivo HTML (ex: "paginas/sobre.html") ou JSON (ex: "dados/info.json")
-        :param json_response: Dicionário JSON (opcional, caso não queira carregar de um arquivo)
+        :param path: Caminho da URL (ex: "/sobre").
+        :param methods: Dicionário com funções para cada método HTTP (ex: {"GET": func_get, "POST": func_post}).
         """
-        if file_path:
-            ext = os.path.splitext(file_path)[-1]  # Obtém a extensão do arquivo
-
-            if ext == ".html":  # Se for um HTML
-                cls.routes[path] = {"html": file_path}
-            elif ext == ".json":  # Se for um JSON
-                try:
-                    with open(file_path, "r", encoding="utf-8") as f:
-                        data = json.load(f)  # Carrega o JSON do arquivo
-                    cls.routes[path] = {"json": data}
-                except Exception as e:
-                    raise ValueError(f"Erro ao carregar JSON: {e}")
-            else:
-                raise ValueError("O arquivo deve ser .html ou .json")
+        if path not in cls.routes:
+            cls.routes[path] = {}
         
-        elif json_response and isinstance(json_response, dict):  # Se JSON for passado diretamente
-            cls.routes[path] = {"json": json_response}
-        
-        else:
-            raise ValueError("É necessário fornecer um arquivo HTML, JSON ou um dicionário JSON válido!")
-
+        if methods:
+            for method, func in methods.items():
+                if callable(func):
+                    cls.routes[path][method.upper()] = func
+                else:
+                    raise ValueError(f"Função inválida para o método {method}.")
+       
 
     def do_GET(self):
-        """Lida com requisições GET e responde com HTML ou JSON, dependendo da rota."""
-        if self.path in self.routes:
-            route = self.routes[self.path]
-
-            if "html" in route:
-                self._serve_html(route["html"])
-            elif "json" in route:
-                self._serve_json(route["json"])
-        else:
-            self._not_found()
+        """Lida com requisições GET e executa a função associada à rota."""
+        self._execute_route("GET")
 
     def do_POST(self):
-        """Lida com requisições POST e retorna os dados enviados."""
-        content_length = int(self.headers.get('Content-Length', 0))
-        post_data = self.rfile.read(content_length).decode("utf-8")
+        """Lida com requisições POST e executa a função associada à rota."""
+        self._execute_route("POST")
 
-        response_data = {
-            "message": "Dados recebidos com sucesso",
-            "data": post_data
-        }
-        self._serve_json(response_data)
+    def do_PUT(self):
+        """Lida com requisições PUT e executa a função associada à rota."""
+        self._execute_route("PUT")
 
-    def _serve_html(self, file_path):
-        # if not os.path.exists(file_path):
-        #     self._not_found()
-        #     return
+    def do_DELETE(self):
+        """Lida com requisições DELETE e executa a função associada à rota."""
+        self._execute_route("DELETE")
 
-        try:
-            with open(file_path, "r", encoding="utf-8") as file:
-                html_content = file.read()
-
-            self.send_response(200)
-            self.send_header("Content-type", "text/html")
-            self.end_headers()
-            self.wfile.write(html_content.encode("utf-8"))
-
-        except Exception as e:
-            self._internal_server_error(str(e))
-
-    def _serve_json(self, data):
-        try:
-            #print(data)
-            json_content = json.dumps(data, indent=4, ensure_ascii=False)  # Formata o JSON
-            self.send_response(200)
-            self.send_header("Content-type", "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(json_content.encode("utf-8"))
-
-        except Exception as e:
-            self.send_response(500)
-            self.send_header("Content-type", "application/json; charset=utf-8")
-            self.end_headers()
-            error_message = json.dumps({"error": "Erro ao processar JSON", "detalhes": str(e)})
-            self.wfile.write(error_message.encode("utf-8"))
+    def _execute_route(self, method):
+        """Executa a função associada à rota e ao método HTTP."""
+        if self.path in self.routes and method in self.routes[self.path]:
+            try:
+                func = self.routes[self.path][method]
+                func(self)  # Passa o próprio handler para a função para que ela tenha acesso à requisição
+            except Exception as e:
+                self._internal_server_error(f"Erro ao executar a rota: {e}")
+        else:
+            self._not_found()
 
     def _not_found(self):
         """Retorna erro 404 quando a rota não é encontrada."""
@@ -149,3 +108,92 @@ class RouteHandler(BaseHandler):
         self.end_headers()
         error_message = {"error": "Erro interno do servidor", "details": error_message}
         self.wfile.write(json.dumps(error_message, indent=4).encode("utf-8"))
+
+    # @classmethod
+    # def add_route(cls, path, file_path=None, json_response=None):
+    #     """
+    #     Registra uma rota, podendo ser uma página HTML ou um JSON carregado de um arquivo.
+
+    #     :param path: Caminho da URL (ex: "/sobre")
+    #     :param file_path: Caminho do arquivo HTML (ex: "paginas/sobre.html") ou JSON (ex: "dados/info.json")
+    #     :param json_response: Dicionário JSON (opcional, caso não queira carregar de um arquivo)
+
+    #     """
+    #     if file_path:
+    #         ext = os.path.splitext(file_path)[-1]  # Obtém a extensão do arquivo
+
+    #         if ext == ".html":  # Se for um HTML
+    #             cls.routes[path] = {"html": file_path}
+    #         elif ext == ".json":  # Se for um JSON
+    #             try:
+    #                 with open(file_path, "r", encoding="utf-8") as f:
+    #                     data = json.load(f)  # Carrega o JSON do arquivo
+    #                 cls.routes[path] = {"json": data}
+    #             except Exception as e:
+    #                 raise ValueError(f"Erro ao carregar JSON: {e}")
+    #         else:
+    #             raise ValueError("O arquivo deve ser .html ou .json")
+        
+    #     elif json_response and isinstance(json_response, dict):  # Se JSON for passado diretamente
+    #         cls.routes[path] = {"json": json_response}
+        
+    #     else:
+    #         raise ValueError("É necessário fornecer um arquivo HTML, JSON ou um dicionário JSON válido!")
+
+
+    # def do_GET(self):
+    #     """Lida com requisições GET e responde com HTML ou JSON, dependendo da rota."""
+    #     if self.path in self.routes:
+    #         route = self.routes[self.path]
+
+    #         if "html" in route:
+    #             self._serve_html(route["html"])
+    #         elif "json" in route:
+    #             self._serve_json(route["json"])
+    #     else:
+    #         self._not_found()
+
+    # def do_POST(self):
+    #     """Lida com requisições POST e retorna os dados enviados."""
+    #     content_length = int(self.headers.get('Content-Length', 0))
+    #     post_data = self.rfile.read(content_length).decode("utf-8")
+
+    #     response_data = {
+    #         "message": "Dados recebidos com sucesso",
+    #         "data": post_data
+    #     }
+    #     self._serve_json(response_data)
+
+    # def _serve_html(self, file_path):
+    #     # if not os.path.exists(file_path):
+    #     #     self._not_found()
+    #     #     return
+
+    #     try:
+    #         with open(file_path, "r", encoding="utf-8") as file:
+    #             html_content = file.read()
+
+    #         self.send_response(200)
+    #         self.send_header("Content-type", "text/html")
+    #         self.end_headers()
+    #         self.wfile.write(html_content.encode("utf-8"))
+
+    #     except Exception as e:
+    #         self._internal_server_error(str(e))
+
+    # def _serve_json(self, data):
+    #     try:
+    #         #print(data)
+    #         json_content = json.dumps(data, indent=4, ensure_ascii=False)  # Formata o JSON
+    #         self.send_response(200)
+    #         self.send_header("Content-type", "application/json; charset=utf-8")
+    #         self.end_headers()
+    #         self.wfile.write(json_content.encode("utf-8"))
+
+    #     except Exception as e:
+    #         self.send_response(500)
+    #         self.send_header("Content-type", "application/json; charset=utf-8")
+    #         self.end_headers()
+    #         error_message = json.dumps({"error": "Erro ao processar JSON", "detalhes": str(e)})
+    #         self.wfile.write(error_message.encode("utf-8"))
+

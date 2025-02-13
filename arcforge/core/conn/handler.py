@@ -2,6 +2,8 @@ from http.server import BaseHTTPRequestHandler
 from abc import ABC, abstractmethod
 import json
 import os
+import re
+
 
 class BaseHandler(BaseHTTPRequestHandler, ABC):
 
@@ -45,7 +47,7 @@ class MyRequestHandler(BaseHandler):
 class RouteHandler(BaseHandler):
   
     # Mapeamento de rotas GET (equivalente ao @GetMapping)
-    routes = {}
+    routes = []
 
     @classmethod
     def add_route(cls, path, methods=None):
@@ -55,15 +57,37 @@ class RouteHandler(BaseHandler):
         :param path: Caminho da URL (ex: "/sobre").
         :param methods: Dicionário com funções para cada método HTTP (ex: {"GET": func_get, "POST": func_post}).
         """
-        if path not in cls.routes:
-            cls.routes[path] = {}
+        if methods is None:
+            methods = {}
         
-        if methods:
-            for method, func in methods.items():
-                if callable(func):
-                    cls.routes[path][method.upper()] = func
-                else:
-                    raise ValueError(f"Função inválida para o método {method}.")
+        pattern = cls._path_to_regex(path)
+        params = cls._extract_params(path)
+
+        cls.routes.append({
+            "path": path,
+            "pattern": re.compile(f"^{pattern}$"),
+            "params": params,
+            "methods": {method.upper(): func for method, func in methods.items() if callable(func)}
+        })
+                
+    
+    @staticmethod
+    def _path_to_regex(path):
+        """
+        Converte uma rota com variáveis de caminho (ex: "/usuarios/{id}") em uma regex (ex: "/usuarios/(?P<id>[^/]+)").
+        """
+        return re.sub(r"{(\w+)}", r"(?P<\1>[^/]+)", path)
+
+    @staticmethod
+    def _extract_params(path):
+        """
+        Extrai os parâmetros definidos entre chaves em uma rota (ex: "/usuarios/{id}").
+        
+        :param path: Caminho da rota.
+        :return: Lista com os nomes dos parâmetros (ex: ["id"]).
+        """
+        return re.findall(r"{(\w+)}", path)
+
        
 
     def do_GET(self):
@@ -84,14 +108,44 @@ class RouteHandler(BaseHandler):
 
     def _execute_route(self, method):
         """Executa a função associada à rota e ao método HTTP."""
-        if self.path in self.routes and method in self.routes[self.path]:
-            try:
-                func = self.routes[self.path][method]
-                func(self)  # Passa o próprio handler para a função para que ela tenha acesso à requisição
-            except Exception as e:
-                self._internal_server_error(f"Erro ao executar a rota: {e}")
-        else:
-            self._not_found()
+        for route in self.routes:
+            match = route["pattern"].match(self.path)
+            if match:
+                if method in route["methods"]:
+                    func = route["methods"][method]
+                    try:
+                        # Extrai variáveis de caminho e passa para a função
+                        func(self, **match.groupdict())
+                        return
+                    except Exception as e:
+                        self._internal_server_error(f"Erro ao executar a rota: {e}")
+        self._not_found()
+        # if self.path in self.routes and method in self.routes[self.path]:
+        #     try:
+        #         func = self.routes[self.path][method]
+        #         result = func(self)  # Chama a função associada à rota
+        #         self._serve_json(result)
+        #     except Exception as e:
+        #         self._internal_server_error(f"Erro ao executar a rota: {e}")
+        # else:
+        #     self._not_found()
+
+    def _serve_json(self, data):
+        """Serializa e envia os dados como JSON."""
+        try:
+            json_content = json.dumps(data, default=self._custom_serializer, indent=4, ensure_ascii=False)
+            self.send_response(200)
+            self.send_header("Content-type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(json_content.encode("utf-8"))
+        except Exception as e:
+            self._internal_server_error(f"Erro ao processar JSON: {e}")
+
+    def _custom_serializer(self, obj):
+        """Serializador personalizado para objetos complexos."""
+        if hasattr(obj, "__dict__"):
+            return obj.__dict__  
+        raise TypeError(f"Tipo não serializável: {type(obj)}")
 
     def _not_found(self):
         """Retorna erro 404 quando a rota não é encontrada."""
@@ -196,4 +250,6 @@ class RouteHandler(BaseHandler):
     #         self.end_headers()
     #         error_message = json.dumps({"error": "Erro ao processar JSON", "detalhes": str(e)})
     #         self.wfile.write(error_message.encode("utf-8"))
+
+
 

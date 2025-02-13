@@ -38,7 +38,6 @@ class Response:
     
     @staticmethod
     def _get_status_message(status):
-        """Retorna a mensagem padrão para o código de status HTTP."""
         status_messages = {
             200: "OK",
             201: "Created",
@@ -71,3 +70,11 @@ users = [User(1, "Alice"), User(2, "Bob")]
 res = Response(status=200,data=users)
 
 print(res.to_http_response())
+
+
+print()
+Lucas = User(3,"Lucas")
+
+ola = Response(status=200,data=Lucas)
+
+print(ola.to_http_response())

@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 import json
 import os
 import re
+#from response import Response
 
 
 class BaseHandler(BaseHTTPRequestHandler, ABC):
@@ -130,12 +131,12 @@ class RouteHandler(BaseHandler):
         # else:
         #     self._not_found()
 
-    def _serve_json(self, data):
+    def _serve_json(self, response):
         """Serializa e envia os dados como JSON."""
         try:
-            json_content = json.dumps(data, default=self._custom_serializer, indent=4, ensure_ascii=False)
-            self.send_response(200)
-            self.send_header("Content-type", "application/json; charset=utf-8")
+            json_content = json.dumps(response.body, default=self._custom_serializer, indent=4, ensure_ascii=False)
+            self.send_response(response.status)
+            self.send_header("Content-Type", f"{response.content_type}; charset=utf-8") 
             self.end_headers()
             self.wfile.write(json_content.encode("utf-8"))
         except Exception as e:

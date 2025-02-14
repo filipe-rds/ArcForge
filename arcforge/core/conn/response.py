@@ -8,7 +8,7 @@ class Response:
     def __init__(self,status=200 ,data=None, content_type="application/json", headers=None):
         self.status = status
         self.content_type = content_type
-        self.body = self._serialize_data(data)
+        self.body = data
         self.headers = headers if headers else {}
 
     def to_http_response(self):
@@ -51,30 +51,3 @@ class Response:
         return status_messages.get(status, "Unknown Status")
 
 
-
-# Testando a resposta
-dados = {"mensagem": "Olá, Gabriel!", "sucesso": True}
-resposta = Response(status=201,data=dados)
-print(resposta.to_http_response())
-
-print()
-
-class User:
-    def __init__(self, id, name):
-        self.id = id
-        self.name = name
-
-# Lista de objetos User
-users = [User(1, "Alice"), User(2, "Bob")]
-
-res = Response(status=200,data=users)
-
-print(res.to_http_response())
-
-
-print()
-Lucas = User(3,"Lucas")
-
-ola = Response(status=200,data=Lucas)
-
-print(ola.to_http_response())

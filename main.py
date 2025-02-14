@@ -1,6 +1,7 @@
 from arcforge.core.conn.handler import RouteHandler
 from arcforge.core.conn.server import WebServer
 from controladorTeste import *
+from arcforge.core.conn.response import Response
 
 
 if __name__ == "__main__":
@@ -20,8 +21,9 @@ if __name__ == "__main__":
 
     def handle_get_usuario(handler, id):
         usuario = next((u for u in usuarios if u["id"] == id), None)
+        res = Response(status=200,data=usuario)
         if usuario:
-            handler._serve_json(usuario)
+            handler._serve_json(res)
         else:
             handler._not_found()
 

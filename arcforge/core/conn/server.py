@@ -11,7 +11,7 @@ class WebServer:
         server_address = (host, port)
 
         httpd = HTTPServer(server_address, RouteHandler)
-        print(f"🔥 Servidor rodando em http://{host}:{port}")
+        print(f" Servidor rodando em http://{host}:{port}")
 
         try:
             httpd.serve_forever()

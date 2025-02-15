@@ -27,7 +27,26 @@ if __name__ == "__main__":
         else:
             handler._not_found()
 
+    def add_usuario(handler,novoUsuario):
+        usuarios.append(novoUsuario)
+        res = Response(status=201,data=novoUsuario)
+        if novoUsuario:
+            handler._serve_json(res)
+        else:
+            handler._not_found()
+        
+        
+    def getAllUsuarios(handler):
+        res = Response(status=200,data=usuarios)
+        if usuarios:
+            handler._serve_json(res)
+        else:
+            handler._not_found()
+
     # Registro da rota com path variable
+    RouteHandler.add_route("/usuarios",methods={"GET": getAllUsuarios})
     RouteHandler.add_route("/usuarios/{id}", methods={"GET": handle_get_usuario})
+    RouteHandler.add_route("/a", methods={"POST": add_usuario})
+    # print(RouteHandler.routes)
 
     WebServer.start(port=9090)  

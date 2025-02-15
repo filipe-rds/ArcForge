@@ -216,6 +216,14 @@ class DatabaseConnection(metaclass=Singleton):
             logger.error(f"Erro ao buscar {model_class.__name__} com ID {object_id}: {e}")
             raise
 
+    def find_all(self,model_class) -> List[Any]:
+        try: 
+            res = self.query(model_class)
+            return res
+        except Exception as e:
+            logger.error(f"Error: {e}")
+            raise
+
     def query_sql(self, query: str, params: List[Any]) -> List[Any]:
         """Executa uma consulta SQL personalizada."""
         try:

@@ -111,25 +111,22 @@ class RouteHandler(BaseHandler):
         """Executa a função associada à rota e ao método HTTP."""
         for route in self.routes:
             match = route["pattern"].match(self.path)
-            if match:
-                if method in route["methods"]:
-                    func = route["methods"][method]
-                    try:
-                        # Extrai variáveis de caminho e passa para a função
+            if match and method in route["methods"]:
+                func = route["methods"][method]
+                try:
+                    if method == "GET":
+                        # Para GET, não é necessário processar o body.
                         func(self, **match.groupdict())
-                        return
-                    except Exception as e:
-                        self._internal_server_error(f"Erro ao executar a rota: {e}")
+                    else:
+                        # Para métodos diferentes de GET, processa o body da requisição.
+                        body = self._parse_body()  # Implemente esse método conforme sua necessidade.
+                        func(self, body, **match.groupdict())
+                    return  # Encerra após encontrar e executar a rota correta.
+                except Exception as e:
+                    self._internal_server_error(f"Erro ao executar a rota: {e}")
+                    return
+        # Se nenhuma rota corresponder:
         self._not_found()
-        # if self.path in self.routes and method in self.routes[self.path]:
-        #     try:
-        #         func = self.routes[self.path][method]
-        #         result = func(self)  # Chama a função associada à rota
-        #         self._serve_json(result)
-        #     except Exception as e:
-        #         self._internal_server_error(f"Erro ao executar a rota: {e}")
-        # else:
-        #     self._not_found()
 
     def _serve_json(self, response):
         """Serializa e envia os dados como JSON."""
@@ -147,6 +144,28 @@ class RouteHandler(BaseHandler):
         if hasattr(obj, "__dict__"):
             return obj.__dict__  
         raise TypeError(f"Tipo não serializável: {type(obj)}")
+    
+    def _parse_body(self):
+        """
+        Lê e interpreta o corpo da requisição.
+
+        Tenta converter o corpo para JSON; se falhar, retorna o corpo como string.
+        Retorna None se não houver corpo.
+        """
+        content_length = int(self.headers.get('Content-Length', 0))
+        if content_length > 0:
+            try:
+                # Lê o corpo da requisição
+                raw_body = self.rfile.read(content_length)
+                # Tenta decodificar como UTF-8
+                decoded_body = raw_body.decode('utf-8')
+                # Tenta converter para JSON
+                return json.loads(decoded_body)
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                # Se não for um JSON válido, retorna o corpo como string
+                return decoded_body
+        return None
+
 
     def _not_found(self):
         """Retorna erro 404 quando a rota não é encontrada."""

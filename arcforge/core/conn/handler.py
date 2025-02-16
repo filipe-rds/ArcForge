@@ -8,7 +8,7 @@ from arcforge.core.conn.response import Response
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
-class RouteHandler(BaseHTTPRequestHandler):
+class RequestHandler(BaseHTTPRequestHandler):
     """
     Manipulador de rotas HTTP com suporte a decorators para mapeamento de métodos HTTP.
     """

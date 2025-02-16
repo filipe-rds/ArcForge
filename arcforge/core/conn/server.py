@@ -3,7 +3,7 @@ import socket
 import logging
 import time
 from http.server import HTTPServer, ThreadingHTTPServer
-from arcforge.core.conn.handler import RouteHandler
+from arcforge.core.conn.handler import RequestHandler
 
 # Configuração de logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -33,7 +33,7 @@ class WebServer(metaclass=Singleton):
 
         # Define o servidor HTTP, podendo ser multithreaded
         ServerClass = ThreadingHTTPServer if threaded else HTTPServer
-        self.httpd = ServerClass(self.server_address, RouteHandler)
+        self.httpd = ServerClass(self.server_address, RequestHandler)
         self.start()
 
     def is_port_in_use(self):
@@ -80,5 +80,5 @@ class WebServer(metaclass=Singleton):
 
 # Exemplo de uso
 if __name__ == "__main__":
-    server = WebServer(port=9090)  # Pode modificar a porta se necessário
-    server.start()
+    WebServer(port=9090)  # Pode modificar a porta se necessário
+

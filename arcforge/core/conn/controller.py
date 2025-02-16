@@ -1,4 +1,4 @@
-from arcforge.core.conn.handler import RouteHandler
+from arcforge.core.conn.handler import RequestHandler
 from arcforge.core.conn.response import Response
 
 class Controller:
@@ -17,10 +17,10 @@ class Controller:
     @classmethod
     def _register_routes(cls):
         """
-        Registra automaticamente os métodos do controlador decorados com @RouteHandler.route.
+        Registra automaticamente os métodos do controlador decorados com @RequestHandler.route.
         """
         for attr_name in dir(cls):
             attr = getattr(cls, attr_name)
             if callable(attr) and hasattr(attr, "_route_info"):
                 path, method = attr._route_info
-                RouteHandler.add_route(path, {method: attr})
+                RequestHandler.add_route(path, {method: attr})

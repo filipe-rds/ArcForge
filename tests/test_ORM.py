@@ -10,14 +10,14 @@ init(autoreset=True)
 db = DatabaseConnection()
 
 # Modelos
+@Model.Table("tb_cliente")
 class Cliente(Model):
-    _table_name = "cliente"
     id = IntegerField(primary_key=True)
     nome = CharField(max_length=100)
     email = CharField(max_length=100)
 
+@Model.Table("tb_pedido")
 class Pedido(Model):
-    _table_name = "pedido"
     id = IntegerField(primary_key=True)
     descricao = CharField(max_length=200)
     cliente = ManyToOne(Cliente, on_delete="CASCADE")

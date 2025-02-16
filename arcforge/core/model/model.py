@@ -23,6 +23,8 @@ class Model:
     Padrão: Active Record - cada instância representa uma linha da tabela e possui métodos
     para persistência e manipulação dos dados.
     """
+    _table_name: str = None
+
     @classmethod
     def Table(cls, table_name: str):
         """Decorator para definir o nome da tabela da classe."""
@@ -34,7 +36,11 @@ class Model:
     def __init_subclass__(cls, **kwargs):
         # Template Method: Inicialização das subclasses para garantir que cada uma possua sua própria lista de relacionamentos.
         super().__init_subclass__(**kwargs)
+        if cls._table_name is None:
+            # Usa o nome da classe em minúsculo por convenção (opcional)
+            cls._table_name = cls.__name__.lower()  # Ou apenas cls.__name__
         cls._relationships = []  # Cada subclasse terá sua própria lista de relacionamentos
+
 
     def __init__(self, **kwargs):
         self._validate_fields(kwargs)

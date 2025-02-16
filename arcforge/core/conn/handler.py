@@ -29,12 +29,23 @@ class RequestHandler(BaseHTTPRequestHandler):
 
             pattern = cls._path_to_regex(path)
             params = cls._extract_params(path)
+            compiled_pattern = re.compile(f"^{pattern}$")
+            method_key = method.upper()
 
+            # Verifica se a rota já existe
+            for route in cls.routes:
+                if route["path"] == path:
+                    # Atualiza ou adiciona o método à rota existente
+                    route["methods"][method_key] = wrapped
+                    return wrapped
+
+
+            # Se não existir, cria uma nova rota
             cls.routes.append({
                 "path": path,
-                "pattern": re.compile(f"^{pattern}$"),
+                "pattern": compiled_pattern,
                 "params": params,
-                "methods": {method.upper(): wrapped},  # Ajustado para associar corretamente
+                "methods": {method_key: wrapped},
                 "func": wrapped
             })
 

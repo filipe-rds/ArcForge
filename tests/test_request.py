@@ -22,32 +22,32 @@ class ClienteController(Controller):
     def get_clientes(handler):
         clientes = db.find_all(Cliente)
         if clientes:
-            return Response(200, clientes)
-        return Response(404, {"error": "Nenhum cliente encontrado"})
+            return Response(HttpStatus.OK, clientes)  # Usando HttpStatus.OK
+        return Response(HttpStatus.NOT_FOUND, {"error": "Nenhum cliente encontrado"})  # Usando HttpStatus.NOT_FOUND
 
     @RequestHandler.route("/clientes/{id}", "GET")
     def get_cliente(handler, id):
         cliente = db.read(Cliente, id)
         if cliente:
-            return Response(200, cliente)
-        return Response(404, {"error": "Cliente não encontrado"})
+            return Response(HttpStatus.OK, cliente)  # Usando HttpStatus.OK
+        return Response(HttpStatus.NOT_FOUND, {"error": "Cliente não encontrado"})  # Usando HttpStatus.NOT_FOUND
 
     @RequestHandler.route("/clientes", "POST")
     def create_cliente(handler, novoCliente):  # O `body` já chega pronto como dicionário
         cliente = Cliente(**novoCliente)  # Constrói diretamente
         db.save(cliente)
-        return Response(201, cliente)
+        return Response(HttpStatus.CREATED, cliente)  # Usando HttpStatus.CREATED
 
     @RequestHandler.route("/clientes/{id}", "PUT")
     def update_cliente(handler, body, id):  # Agora também aceita updates diretos
         cliente = db.read(Cliente, id)
         if not cliente:
-            return Response(404, {"error": "Cliente não encontrado"})
+            return Response(HttpStatus.NOT_FOUND, {"error": "Cliente não encontrado"})  # Usando HttpStatus.NOT_FOUND
 
         for key, value in body.items():
             setattr(cliente, key, value)  # Atualiza dinamicamente os atributos
         db.update(cliente)
-        return Response(200, cliente)
+        return Response(HttpStatus.OK, cliente)  # Usando HttpStatus.OK
 
 
 if __name__ == "__main__":

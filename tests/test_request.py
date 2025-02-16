@@ -2,6 +2,7 @@ from arcforge.core.model.model import *
 from arcforge.core.conn.controller import *
 from colorama import Fore, Style, init
 import random
+from http.cookies import SimpleCookie
 
 # Inicializa o colorama
 init(autoreset=True)
@@ -182,12 +183,67 @@ class PedidoController(Controller):
                 setattr(pedido, key, value)
         db.update(pedido)
         return Response(HttpStatus.OK, pedido)
+    
+class AuthController(Controller):
+    @RequestHandler.route("/login", "POST")
+    def login(handler, body):
+        handler.init_session()  # Garante que a sessão seja iniciada
+        print("1")
+        # Verifica se o campo "email" foi enviado
+        email = body.get("email")
+        if not email:
+            return Response(HttpStatus.BAD_REQUEST, {"error": "O campo 'email' é obrigatório"})
+        print(2)
+        # Consulta o cliente pelo e-mail
+        cliente = db.query(Cliente, order_by="id", email=email)
+        if not cliente:
+            return Response(HttpStatus.UNAUTHORIZED, {"error": "E-mail não encontrado"})
+        print(3)
+        # Retorna os dados do cliente autenticado
+        cliente_dto = ClienteListDTO(cliente)
+        cliente_novo = Cliente(**cliente_dto.to_dict())
+        print(4)
+        # Armazena o cliente na sessão
+        handler.set_session("cliente", cliente_novo)
+        print(5)
+        # Retorna uma resposta de sucesso
+        return Response(HttpStatus.OK, {"message": "Login bem-sucedido", "cliente": cliente_novo.to_dict()})
+    
+    @RequestHandler.route("/session", "GET")
+    def check_session(handler):
+        handler.init_session()  # Garante que a sessão esteja iniciada
+        session_data = handler.get_session("cliente", default="Não encontrado")  # Usando get_session para acessar o valor
+
+        if not isinstance(session_data, dict):
+            session_data = str(session_data)
+
+        return Response(HttpStatus.OK, {"message": "Sessão ativa", "session_data": session_data})
+
+    @RequestHandler.route("/logout", "POST")
+    def logout(handler):
+        # Inicia ou recupera a sessão
+        handler.init_session()  # Garante que a sessão seja iniciada
+
+        # Invalida a sessão removendo o cookie
+        cookie = SimpleCookie()
+        cookie["session_id"] = ""
+        cookie["session_id"]["expires"] = "Thu, 01 Jan 1970 00:00:00 GMT"
+        
+        # Remove os dados da sessão utilizando o método 'set_session'
+        if handler.session_id:
+            handler.set_session("cliente", None)  # Exemplo de remoção de dados da sessão, se necessário
+
+        handler.send_header("Set-Cookie", cookie.output(header="", sep=""))
+
+        return Response(HttpStatus.OK, {"message": "Logout realizado com sucesso"})
 
 if __name__ == "__main__":
     setup_database()
     # Instancia os controladores para registrar as rotas automaticamente
     ClienteController()
     PedidoController()
+    AuthController()
+
 
     # Inicializa e executa o servidor
     server = WebServer(port=8080)

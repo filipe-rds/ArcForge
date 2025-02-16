@@ -1,17 +1,22 @@
 import logging
 import json
 import re
+import http.cookies
+import uuid
 from functools import wraps
 from http.server import BaseHTTPRequestHandler
 from arcforge.core.conn.response import Response, HttpStatus
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
+session = {}  # sessão
 
 class RequestHandler(BaseHTTPRequestHandler):
     """
     Manipulador de rotas HTTP com suporte a decorators para mapeamento de métodos HTTP.
     """
+    session_id = None  # Identificador da sessão
+    session_data = {}  # Dados da sessão
     routes = []  # Lista de rotas registradas
 
     @classmethod
@@ -51,7 +56,39 @@ class RequestHandler(BaseHTTPRequestHandler):
 
             return wrapped
         return decorator
+    
+    def init_session(self):
+        """Inicia ou recupera uma sessão, sob demanda."""
+        if not self.session_id:  # Se a sessão ainda não foi iniciada
+            cookie = http.cookies.SimpleCookie(self.headers.get("Cookie"))
+            session_cookie = cookie.get("session_id")
 
+            if session_cookie and session_cookie.value in session:
+                # Recupera a sessão existente
+                self.session_id = session_cookie.value
+            else:
+                # Cria uma nova sessão
+                self.session_id = str(uuid.uuid4())
+                session[self.session_id] = {}  # Cria o espaço para a nova sessão
+
+                # Armazena o session_id no cookie
+                self.headers["Set-Cookie"] = f"session_id={self.session_id}; Path=/; HttpOnly"
+            
+            # Sempre armazena os dados da sessão ativa
+            self.session_data = session[self.session_id]  # Garantir que session_data seja um dicionário
+
+    def get_session(self, key, default=None):
+        """Recupera um valor da sessão atual, se existir."""
+        if self.session_data is None:  # Verifica se session_data não é None
+            self.init_session()
+        return self.session_data.get(key, default)
+
+    def set_session(self, key, value):
+        """Define um valor na sessão atual."""
+        if self.session_data is None:  # Verifica se session_data não é None
+            self.init_session()
+        self.session_data[key] = value  # Armazena o valor na sessão
+        
     @staticmethod
     def _path_to_regex(path: str) -> str:
         """Converte uma rota com parâmetros (ex.: "/usuarios/{id}") em uma regex."""
@@ -113,6 +150,10 @@ class RequestHandler(BaseHTTPRequestHandler):
         # Escrevendo os headers corretamente
         for key, value in response.headers.items():
             self.send_header(key, value)
+        
+        if self.session_id:
+            self.send_header("Set-Cookie", f"session_id={self.session_id}; HttpOnly")
+
         self.end_headers()
 
         if response.body:  # Verifica se há corpo na resposta

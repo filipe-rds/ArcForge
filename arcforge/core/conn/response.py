@@ -1,5 +1,6 @@
 from enum import Enum
 import json
+import http.cookies
 
 class HttpStatus(Enum):
     OK = (200, "OK")
@@ -19,11 +20,13 @@ class HttpStatus(Enum):
         return f"{self.code} {self.message}"
 
 class Response:
-    def __init__(self, status: HttpStatus, data=None):
+    def __init__(self, status: HttpStatus, data=None, cookies=None):
         self.status = status.code
         self.status_message = status.message
+        self.cookies = cookies or {}
         self.body = self._serialize(data)
         self.headers = self._build_headers()
+        
 
     def _serialize(self, data) -> str:
         if data is None:
@@ -56,7 +59,21 @@ class Response:
             headers["Content-Length"] = str(len(self.body.encode("utf-8")))
         else:
             headers["Content-Type"] = "text/plain; charset=utf-8"
+        
+        # Adiciona os cookies ao cabeçalho apenas se existirem.
+        if self.cookies:  # Só inclui "Set-Cookie" se houver cookies
+            cookies = self._build_cookies()
+            headers["Set-Cookie"] = cookies
         return headers
+
+    def _build_cookies(self) -> str:
+        cookie_str = []
+        for key, value in self.cookies.items():
+            cookie = http.cookies.SimpleCookie()
+            # Converte o valor para string explicitamente
+            cookie[key] = str(value)
+            cookie_str.append(cookie.output(header="", sep="").strip())
+        return "; ".join(cookie_str)
 
     def to_http_response(self) -> str:
         status_line = f"HTTP/1.1 {self.status} {self.status_message}"

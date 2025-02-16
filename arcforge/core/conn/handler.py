@@ -6,6 +6,7 @@ import uuid
 from functools import wraps
 from http.server import BaseHTTPRequestHandler
 from arcforge.core.conn.response import Response, HttpStatus
+from http.cookies import SimpleCookie
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -88,7 +89,26 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self.session_data is None:  # Verifica se session_data não é None
             self.init_session()
         self.session_data[key] = value  # Armazena o valor na sessão
-        
+    
+    def del_session(self):
+        if self.session_id:
+            # Remove os dados da sessão
+            self.set_session("cliente", None)  # Limpa os dados da sessão
+
+            # Remove a sessão do servidor (opcional)
+            session.pop(self.session_id, None)
+            self.session_id = None
+            self.session_data = {}
+
+            # Cria o cookie para invalidar a sessão
+            cookie = SimpleCookie()
+            cookie["session_id"] = ""
+            cookie["session_id"]["expires"] = "Thu, 01 Jan 1970 00:00:00 GMT"
+            cookie["session_id"]["path"] = "/"
+            
+            # Retorna o cookie expirado com a resposta
+            return cookie
+
     @staticmethod
     def _path_to_regex(path: str) -> str:
         """Converte uma rota com parâmetros (ex.: "/usuarios/{id}") em uma regex."""

@@ -378,7 +378,14 @@ class DatabaseConnection(metaclass=Singleton):
                 cursor.execute(full_query, filter_values)
                 rows = cursor.fetchall()
                 columns = [desc[0] for desc in cursor.description]
-                return [self._row_to_object(base_model, row, columns) for row in rows]
+
+                # Converte as linhas em objetos
+                objects = [self._row_to_object(base_model, row, columns) for row in rows]
+
+                # Retorna o objeto diretamente se houver apenas um resultado
+                if len(objects) == 1:
+                    return objects[0]  # Retorna o objeto diretamente
+                return objects  # Retorna a lista de objetos
 
         except psycopg.Error as e:
             logger.error(f"Erro ao executar a consulta: {e}")

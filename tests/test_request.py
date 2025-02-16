@@ -23,6 +23,33 @@ class Pedido(Model):
     descricao = CharField(max_length=200)
     cliente = ManyToOne(Cliente, on_delete="CASCADE")
 
+
+class ClienteListDTO(ModelDTO):
+    def __init__(self, cliente):
+        self.id = cliente.id
+        self.nome = cliente.nome
+        self.email = cliente.email
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "nome": self.nome,
+            "email": self.email
+        }
+
+class PedidoListDTO(ModelDTO):
+    def __init__(self, pedido):
+        self.id = pedido.id
+        self.descricao = pedido.descricao
+        self.cliente = ClienteListDTO(pedido.cliente) if pedido.cliente else None
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "descricao": self.descricao,
+            "cliente": self.cliente.to_dict() if self.cliente else None
+        }
+
 # Configuração do banco e inserção de dados
 def setup_database():
     # Cria as tabelas
@@ -82,7 +109,9 @@ class ClienteController(Controller):
     def get_clientes(handler):
         clientes = db.find_all(Cliente)
         if clientes:
-            return Response(HttpStatus.OK, clientes)
+            # Serializa cada pedido incluindo o cliente completo
+            serialized_clientes = [ClienteListDTO(cliente).to_dict() for cliente in clientes]
+            return Response(HttpStatus.OK, serialized_clientes)
         return Response(HttpStatus.NOT_FOUND, {"error": "Nenhum cliente encontrado"})
 
     @RequestHandler.route("/clientes/{id}", "GET")
@@ -115,7 +144,9 @@ class PedidoController(Controller):
     def get_pedidos(handler):
         pedidos = db.find_all(Pedido)
         if pedidos:
-            return Response(HttpStatus.OK, pedidos)
+            # Serializa cada pedido incluindo o cliente completo
+            serialized_pedidos = [PedidoListDTO(pedido).to_dict() for pedido in pedidos]
+            return Response(HttpStatus.OK, serialized_pedidos)
         return Response(HttpStatus.NOT_FOUND, {"error": "Nenhum pedido encontrado"})
 
     @RequestHandler.route("/pedidos/{id}", "GET")

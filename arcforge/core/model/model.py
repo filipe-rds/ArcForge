@@ -1,4 +1,5 @@
 from typing import Dict, List, Any
+from abc import ABC, abstractmethod
 
 from arcforge.core.model.field import *
 from arcforge.core.model.relationships import *
@@ -138,4 +139,13 @@ class Model:
         return {key: value for key, value in self.__dict__.items()}
 
 
-__all__ = ["Model"] + fields_all + relationships_all + connection_all
+class ModelDTO(ABC):
+    """Interface base para todos os DTOs."""
+
+    @abstractmethod
+    def to_dict(self) -> dict:
+        """Converte o DTO em um dicionário."""
+        pass
+
+
+__all__ = ["Model","ModelDTO"] + fields_all + relationships_all + connection_all

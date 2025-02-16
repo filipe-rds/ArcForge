@@ -1,7 +1,4 @@
-from arcforge.core.db.connection import DatabaseConnection
-from arcforge.core.model.model import Model
-from arcforge.core.model.field import IntegerField, CharField
-from arcforge.core.model.relationships import ManyToOne
+from arcforge.core.model.model import *
 from colorama import Fore, Style, init
 
 # Inicializando o colorama

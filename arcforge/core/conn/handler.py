@@ -121,3 +121,5 @@ class RequestHandler(BaseHTTPRequestHandler):
     def _internal_server_error(self, error_message: str):
         """Retorna um erro 500 para exceções internas."""
         self._serve_json(Response(500, {"error": "Erro interno do servidor", "details": error_message}))
+
+__all__ = ["RequestHandler"]

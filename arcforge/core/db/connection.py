@@ -371,3 +371,4 @@ class DatabaseConnection(metaclass=Singleton):
         pass  # Esse método está agora implementado na classe Model (ver model.py)
 
 
+__all__ = ["DatabaseConnection"]

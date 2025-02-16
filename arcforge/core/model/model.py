@@ -1,9 +1,12 @@
-import psycopg
-from psycopg import sql
 from typing import Dict, List, Any
-from arcforge.core.db.config import DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT  # Exemplo de importação explícita
-from arcforge.core.model.field import Field, IntegerField, CharField  # Importações explícitas
-from arcforge.core.model.relationships import Relationship, OneToOne, ManyToOne
+
+from arcforge.core.model.field import *
+from arcforge.core.model.relationships import *
+from arcforge.core.db.connection import *
+
+from arcforge.core.model.field import __all__ as fields_all
+from arcforge.core.model.relationships import __all__ as relationships_all
+from arcforge.core.db.connection import __all__ as connection_all
 
 # -----------------------------------------------------------------------------
 # Padrão de Projeto: Active Record
@@ -129,57 +132,4 @@ class Model:
         return {key: value for key, value in self.__dict__.items()}
 
 
-# -----------------------------------------------------------------------------
-# Exemplos de uso
-# -----------------------------------------------------------------------------
-if __name__ == "__main__":
-    # Definindo um modelo de usuário (Active Record)
-    class User(Model):
-        _table_name = "users"
-        id = IntegerField(primary_key=True)
-        name = CharField(max_length=100, nullable=False)
-        email = CharField(max_length=255, unique=True)
-        age = IntegerField(nullable=True)
-
-    # Criando uma instância do modelo User
-    user = User(id=1, name="John Doe", email="john.doe@example.com", age=30)
-    print(user)  # Saída: User(id=1, name=John Doe, email=john.doe@example.com, age=30)
-    print("SQL da tabela User:")
-    print(User._generate_fields())
-    # Saída esperada:
-    # id INTEGER PRIMARY KEY UNIQUE NOT NULL, name VARCHAR(100) NOT NULL, email VARCHAR(255) UNIQUE, age INTEGER
-
-    # Exemplo de relacionamento One-to-One
-    class Profile(Model):
-        _table_name = "profiles"
-        id = IntegerField(primary_key=True)
-        user_id = OneToOne(User)  # Relacionamento One-to-One com User
-        bio = CharField(max_length=500, nullable=True)
-
-    profile = Profile(id=1, user_id=1, bio="Software Engineer")
-    print(profile)  # Saída: Profile(id=1, user_id=1, bio=Software Engineer)
-    print("\nSQL da tabela Profile:")
-    print(Profile._generate_fields())
-    # Saída esperada:
-    # id INTEGER PRIMARY KEY UNIQUE NOT NULL, user_id INTEGER REFERENCES users(id) ON DELETE CASCADE UNIQUE, bio VARCHAR(500)
-
-    # Exemplo de relacionamento Many-to-One
-    class Post(Model):
-        _table_name = "posts"
-        id = IntegerField(primary_key=True)
-        title = CharField(max_length=200, nullable=False)
-        content = CharField(max_length=1000, nullable=False)
-        author_id = ManyToOne(User)  # Relacionamento Many-to-One com User
-
-    post = Post(id=1, title="Hello World", content="This is my first post!", author_id=1)
-    print(post)  # Saída: Post(id=1, title=Hello World, content=This is my first post!, author_id=1)
-    print("\nSQL da tabela Post:")
-    print(Post._generate_fields())
-    # Saída esperada:
-    # id INTEGER PRIMARY KEY UNIQUE NOT NULL, title VARCHAR(200) NOT NULL, content VARCHAR(1000) NOT NULL, author_id INTEGER REFERENCES users(id) ON DELETE CASCADE
-
-    # Exibindo metadados de relacionamentos
-    print("\nMetadados de relacionamentos:")
-    print("User:", User._relationships)  # []
-    print("Profile:", Profile._relationships)
-    print("Post:", Post._relationships)
+__all__ = ["Model"] + fields_all + relationships_all + connection_all

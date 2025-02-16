@@ -186,33 +186,4 @@ class BooleanField(Field):
         return bool
 
 
-# -----------------------------------------------------------------------------
-# Exemplos de uso e testes
-# -----------------------------------------------------------------------------
-if __name__ == "__main__":
-    fields_to_test = [
-        (IntegerField(nullable=False), 10, "dez"),
-        (RealField(), 3.14, "pi"),
-        (CharField(max_length=50), "Olá, mundo!", "a" * 51),
-        (DateField(), "2023-10-01", "2023/10/01"),
-        (BooleanField(), True, "verdadeiro")
-    ]
-
-    for field, valid_value, invalid_value in fields_to_test:
-        try:
-            print(f"\nTestando {field.field_type}:")
-            print(f"Valor válido '{valid_value}': ", end="")
-            field.validate(valid_value)
-            print("✅ OK")
-            print(f"Valor inválido '{invalid_value}': ", end="")
-            field.validate(invalid_value)
-            print("❌ Falhou (não levantou exceção)")
-        except ValidationError as e:
-            print(f"✅ Erro capturado: {e}")
-
-    print("\nSQL gerado:")
-    print(f"IntegerField: {IntegerField(primary_key=True).to_sql()}")
-    print(f"RealField: {RealField(default=0.0).to_sql()}")
-    print(f"CharField: {CharField(max_length=100, default='Olá').to_sql()}")
-    print(f"DateField: {DateField(nullable=False).to_sql()}")
-    print(f"BooleanField: {BooleanField(default=True).to_sql()}")
+__all__ = ["ValidationError", "Field", "IntegerField", "RealField", "CharField","DateField", "BooleanField",]

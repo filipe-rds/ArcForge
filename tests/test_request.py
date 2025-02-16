@@ -1,11 +1,5 @@
-from arcforge.core.db.connection import DatabaseConnection
-from arcforge.core.model.model import Model
-from arcforge.core.model.field import IntegerField, CharField
-from arcforge.core.conn.handler import RequestHandler
-from arcforge.core.conn.server import WebServer
-from arcforge.core.conn.response import Response
-from arcforge.core.conn.controller import Controller
-import json
+from arcforge.core.model.model import *
+from arcforge.core.conn.controller import *
 
 # Inicializa a conexão com o banco
 db = DatabaseConnection()

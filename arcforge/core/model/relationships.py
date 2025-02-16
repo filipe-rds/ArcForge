@@ -137,44 +137,5 @@ class ManyToMany(Relationship):
     def to_sql(self) -> str:
         raise NotImplementedError("ManyToMany requer tratamento especial na migração.")
 
-# -----------------------------------------------------------------------------
-# Exemplos de uso dos relacionamentos
-# -----------------------------------------------------------------------------
-if __name__ == "__main__":
-    # Exemplo simples para teste do to_sql e do carregamento dinâmico
 
-    class User:
-        _table_name = "users"
-        # Suponha que a classe User herde de Model e possua o método read implementado via DatabaseConnection.
-        id = 1  # Valor fixo para teste
-
-        @classmethod
-        def get_by_id(cls, object_id):
-            # Esse método não será chamado, pois usamos DatabaseConnection.read diretamente.
-            # Apenas para referência, o método read da DatabaseConnection é quem fará a busca.
-            pass
-
-    class Post:
-        _table_name = "posts"
-        id = 1
-
-    # Testando o relacionamento Many-to-One
-    # Por exemplo, suponha que o campo "author_id" exista na tabela de Post.
-    author_relation = ManyToOne(User, on_delete="cascade")
-    print(author_relation.to_sql())  # Espera: INTEGER REFERENCES users(id) ON DELETE CASCADE
-
-    # Testando o relacionamento One-to-One com referência a uma coluna diferente
-    profile_relation = OneToOne(User, ref_column="uuid", on_delete=OnDeleteAction.SET_NULL)
-    print(profile_relation.to_sql())  # Espera: INTEGER REFERENCES users(uuid) ON DELETE SET NULL UNIQUE
-
-    # Testando o relacionamento Many-to-Many (placeholder)
-    class UserPost:
-        _table_name = "user_posts"
-    user_posts_relation = ManyToMany(Post, through=UserPost, on_delete=OnDeleteAction.CASCADE)
-    print(user_posts_relation)  # Exibe os metadados do relacionamento
-
-    # Tentativa de criar um relacionamento com ação inválida
-    try:
-        invalid_relation = ManyToOne(Post, on_delete="invalid_action")
-    except ValueError as e:
-        print(e)  # Exibe mensagem de erro para ação inválida
+__all__ = ["OnDeleteAction", "Relationship", "ManyToOne", "OneToOne", "ManyToMany"]

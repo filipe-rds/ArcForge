@@ -101,12 +101,4 @@ class Response:
         return f"{status_line}\r\n{headers_lines}\r\n\r\n{self.body}"
 
 
-# Exemplo de uso:
-if __name__ == "__main__":
-    # Exemplo 1: resposta com JSON
-    resp_json = Response(200, data={"message": "Hello, World!"})
-    print(resp_json.to_http_response())
-
-    # Exemplo 2: resposta com texto simples
-    resp_text = Response(404, data="Página não encontrada")
-    print(resp_text.to_http_response())
+__all__ = ["Response"]

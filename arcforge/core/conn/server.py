@@ -1,7 +1,6 @@
 import threading
 import socket
 import logging
-import time
 from http.server import HTTPServer, ThreadingHTTPServer
 from arcforge.core.conn.handler import RequestHandler
 
@@ -77,8 +76,5 @@ class WebServer(metaclass=Singleton):
             logging.warning("Servidor não estava rodando.")
 
 
-
-# Exemplo de uso
-if __name__ == "__main__":
-    WebServer(port=9090)  # Pode modificar a porta se necessário
+__all__ = ["WebServer"]
 

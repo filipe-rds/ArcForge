@@ -114,6 +114,20 @@ class DatabaseConnection(metaclass=Singleton):
             logger.error(f"Erro ao criar a tabela {base_model._table_name}: {e}")
             raise
 
+    def delete_table(self, base_model):
+        """Deleta a tabela do banco de dados com base no modelo fornecido, removendo também as dependências (cascade)."""
+        drop_table_query = sql.SQL("DROP TABLE IF EXISTS {table} CASCADE;").format(
+            table=sql.Identifier(base_model._table_name)
+        )
+        try:
+            with self.get_cursor() as cursor:
+                cursor.execute(drop_table_query)
+                self._conexao.commit()
+                logger.info(f"Tabela {base_model._table_name} deletada com sucesso (cascade).")
+        except psycopg.Error as e:
+            logger.error(f"Erro ao deletar a tabela {base_model._table_name}: {e}")
+            raise
+
     def save(self, model_instance):
         """Salva (INSERT) a instância no banco de dados."""
         self.validationType(model_instance.__class__, model_instance)

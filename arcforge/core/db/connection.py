@@ -254,135 +254,132 @@ class DatabaseConnection(metaclass=Singleton):
 
     def query(self, base_model, **filters) -> List[Any]:
         """
-
         Executa uma consulta no banco de dados com base nos filtros fornecidos, inferindo automaticamente
-        os joins necessários a partir das relações definidas no modelo. Além disso, suporta cláusulas
-        adicionais como `ORDER BY` e `GROUP BY`.
-
-        Este método segue o padrão Repository Pattern, encapsulando a lógica de acesso e transformação
-        dos dados, retornando objetos do domínio.
+        os joins necessários a partir das relações definidas no modelo. Suporta ORDER BY e GROUP BY.
 
         Parâmetros:
-        base_model: Classe do modelo base para a consulta.
-        filters: Filtros para a consulta, que podem incluir:
-        - Condições WHERE (ex: `status="ativo"`, `usuario.nome="João"`).
-        - Cláusulas ORDER BY (ex: `order_by="data_criacao DESC"` ou `order_by=["data_criacao DESC", "usuario.nome"]`).
-        - Cláusulas GROUP BY (ex: `group_by="status"` ou `group_by=["status", "usuario.id"]`).
+            base_model: Classe do modelo base para a consulta
+            filters: Filtros podendo incluir condições WHERE, ORDER BY e GROUP BY
 
         Retorno:
-        List[Any]: Uma lista de objetos do domínio correspondentes aos registros encontrados.
-
-        Design Pattern: Repository Pattern – encapsula a lógica de acesso e transformação
-        dos dados, retornando objetos do domínio.
+            List[Any]: Lista de objetos do domínio
         """
         try:
+            # Construção da query base
+            base_table = sql.Identifier(base_model._table_name)
             base_query = sql.SQL("SELECT {base_table}.* FROM {base_table}").format(
-                base_table=sql.Identifier(base_model._table_name)
+                base_table=base_table
             )
 
+            # Geração automática de JOINS
             join_clauses = []
             relationships = getattr(base_model, "_relationships", [])
-            joined_tables = {base_model._table_name: True}
+            joined_tables = {base_model._table_name: True}  # Tabelas já incluídas
 
             for rel in relationships:
                 ref_table = rel["ref_table"]
                 base_column = rel["field_name"]
-                ref_field = "id"
+                ref_field = rel.get("ref_field", "id")
+
                 if ref_table not in joined_tables:
-                    join_clause = sql.SQL(
-                        " JOIN {ref_table} ON {base_table}.{base_column} = {ref_table}.{ref_field}"
-                    ).format(
+                    join_clause = sql.SQL(" JOIN {ref_table} ON {base_table}.{base_column} = {ref_table}.{ref_field}").format(
                         ref_table=sql.Identifier(ref_table),
-                        base_table=sql.Identifier(base_model._table_name),
+                        base_table=base_table,
                         base_column=sql.Identifier(base_column),
                         ref_field=sql.Identifier(ref_field)
                     )
                     join_clauses.append(join_clause)
                     joined_tables[ref_table] = True
 
-            # Extrai order_by e group_by dos filtros
+            # Processamento dos filtros
             order_by = filters.pop('order_by', None)
             group_by = filters.pop('group_by', None)
 
             filter_clauses = []
             filter_values = []
             for column, value in filters.items():
-                if "_" in column and "." not in column:
-                    table, column_name = column.split("_", 1)
-                    column = f"{table}.{column_name}"
+                # Nova lógica corrigida para identificação de tabela/coluna
                 if "." in column:
                     table, column_name = column.split(".", 1)
-                    filter_clauses.append(sql.SQL("{table}.{column} = %s").format(
+                else:
+                    table = base_model._table_name
+                    column_name = column
+
+                filter_clauses.append(
+                    sql.SQL("{table}.{column} = %s").format(
                         table=sql.Identifier(table),
                         column=sql.Identifier(column_name)
-                    ))
-                else:
-                    filter_clauses.append(sql.SQL("{table}.{column} = %s").format(
-                        table=sql.Identifier(base_model._table_name),
-                        column=sql.Identifier(column)
-                    ))
+                    )
+                )
                 filter_values.append(value)
 
+            # Construção das cláusulas
             where_clause = sql.SQL(" WHERE ") + sql.SQL(" AND ").join(filter_clauses) if filter_clauses else sql.SQL("")
 
-            # Constrói cláusula GROUP BY
+            # GROUP BY
             group_by_sql = sql.SQL("")
-            if group_by is not None:
+            if group_by:
                 group_columns = [group_by] if isinstance(group_by, str) else group_by
                 group_clauses = []
                 for col in group_columns:
-                    if '.' in col:
-                        table, column = col.split('.', 1)
+                    if "." in col:
+                        table, column = col.split(".", 1)
                         group_clauses.append(sql.SQL("{table}.{column}").format(
                             table=sql.Identifier(table),
                             column=sql.Identifier(column)
                         ))
                     else:
                         group_clauses.append(sql.SQL("{table}.{column}").format(
-                            table=sql.Identifier(base_model._table_name),
+                            table=base_table,
                             column=sql.Identifier(col)
                         ))
                 group_by_sql = sql.SQL(" GROUP BY ") + sql.SQL(", ").join(group_clauses)
 
-            # Constrói cláusula ORDER BY
+            # ORDER BY
             order_by_sql = sql.SQL("")
-            if order_by is not None:
+            if order_by:
                 order_columns = [order_by] if isinstance(order_by, str) else order_by
                 order_clauses = []
                 for col in order_columns:
                     parts = col.strip().split()
                     column_part = parts[0]
-                    direction = parts[1].upper() if len(parts) > 1 else ''
-                    direction = direction if direction in ('ASC', 'DESC') else ''
-                    if '.' in column_part:
-                        table, column = column_part.split('.', 1)
+                    direction = parts[1].upper() if len(parts) > 1 and parts[1].upper() in ('ASC', 'DESC') else ''
+
+                    if "." in column_part:
+                        table, column = column_part.split(".", 1)
                         clause = sql.SQL("{table}.{column}").format(
                             table=sql.Identifier(table),
                             column=sql.Identifier(column)
                         )
                     else:
                         clause = sql.SQL("{table}.{column}").format(
-                            table=sql.Identifier(base_model._table_name),
+                            table=base_table,
                             column=sql.Identifier(column_part)
                         )
+
                     if direction:
                         clause += sql.SQL(f" {direction}")
+
                     order_clauses.append(clause)
+
                 order_by_sql = sql.SQL(" ORDER BY ") + sql.SQL(", ").join(order_clauses)
 
+            # Query final
             full_query = (
-                    base_query
-                    + sql.SQL(" ").join(join_clauses)
-                    + where_clause
-                    + group_by_sql
-                    + order_by_sql
+                    base_query +
+                    sql.SQL(" ").join(join_clauses) +
+                    where_clause +
+                    group_by_sql +
+                    order_by_sql
             )
 
+            # Execução
             with self.get_cursor() as cursor:
                 cursor.execute(full_query, filter_values)
                 rows = cursor.fetchall()
                 columns = [desc[0] for desc in cursor.description]
                 return [self._row_to_object(base_model, row, columns) for row in rows]
+
         except psycopg.Error as e:
             logger.error(f"Erro ao executar a consulta: {e}")
             raise

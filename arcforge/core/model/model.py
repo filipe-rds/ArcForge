@@ -20,7 +20,13 @@ class Model:
     Padrão: Active Record - cada instância representa uma linha da tabela e possui métodos
     para persistência e manipulação dos dados.
     """
-    _table_name: str = None
+    @classmethod
+    def Table(cls, table_name: str):
+        """Decorator para definir o nome da tabela da classe."""
+        def wrapper(subclass):
+            subclass._table_name = table_name
+            return subclass
+        return wrapper
 
     def __init_subclass__(cls, **kwargs):
         # Template Method: Inicialização das subclasses para garantir que cada uma possua sua própria lista de relacionamentos.

@@ -8,6 +8,13 @@ from http.server import BaseHTTPRequestHandler
 from arcforge.core.conn.response import Response, HttpStatus
 from http.cookies import SimpleCookie
 
+
+# -----------------------------------------------------------------------------
+# Design Pattern: Decorator
+# Permite estender a funcionalidade do mapeamento de métodos HTTP de forma
+# modular, associando rotas a funções através de decorators.
+# -----------------------------------------------------------------------------
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 session = {}  # sessão

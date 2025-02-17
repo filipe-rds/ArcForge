@@ -6,8 +6,11 @@ from datetime import datetime
 # A classe Field define a sequência de passos (métodos) para a construção da
 # definição SQL e validação de valores, permitindo que as subclasses especializem
 # partes específicas do comportamento.
-# -----------------------------------------------------------------------------
 
+# Design Pattern: Strategy
+# O método validate na classe Field atua como um contexto no padrão Strategy. Ele define a estrutura geral
+# da validação, mas permite que as subclasses forneçam implementações específicas para a validação de valores.
+# -----------------------------------------------------------------------------
 class ValidationError(ValueError):
     """Exceção personalizada para erros de validação de campos."""
     def __init__(self, message: str, field_type: str, value: Any):

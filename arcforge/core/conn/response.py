@@ -18,6 +18,15 @@ class HttpStatus(Enum):
 
     def __str__(self):
         return f"{self.code} {self.message}"
+    
+
+# -----------------------------------------------------------------------------
+# Design Pattern: Builder
+# A classe Response utiliza o padrão Builder para construir uma resposta HTTP de
+# forma estruturada e passo a passo. Esse padrão é ideal para objetos complexos,
+# como uma resposta HTTP, que envolve múltiplos componentes (status, headers,
+# corpo da resposta e cookies).
+# -----------------------------------------------------------------------------
 
 class Response:
     def __init__(self, status: HttpStatus, data=None, cookies=None):

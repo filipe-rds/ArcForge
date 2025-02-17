@@ -7,6 +7,12 @@ from arcforge.core.conn.response import __all__ as response_all
 from arcforge.core.conn.server import __all__ as server_all
 
 
+# -----------------------------------------------------------------------------
+# Design Pattern: Decorator
+# Permite que métodos de subclasses de Controller sejam automaticamente registrados
+# como rotas quando decorados com @RequestHandler.route.
+# -----------------------------------------------------------------------------
+
 class Controller:
     """
     Classe base para controladores.

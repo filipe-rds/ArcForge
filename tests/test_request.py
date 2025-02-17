@@ -201,13 +201,12 @@ class AuthController(Controller):
         
         # Retorna os dados do cliente autenticado
         cliente_dto = ClienteListDTO(cliente)
-        cliente_novo = Cliente(**cliente_dto.to_dict())
         
         # Armazena o cliente na sessão
-        handler.set_session("cliente", cliente_novo)
+        handler.set_session("cliente", cliente_dto.to_dict())
         
         # Retorna uma resposta de sucesso
-        return Response(HttpStatus.OK, {"message": "Login bem-sucedido", "cliente": cliente_novo.to_dict()})
+        return Response(HttpStatus.OK, {"message": "Login bem-sucedido", "cliente": cliente_dto.to_dict()})
     
     @RequestHandler.route("/session", "GET")
     def check_session(handler):

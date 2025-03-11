@@ -3,27 +3,9 @@ from abc import ABC, abstractmethod
 
 from arcforge.core.model.field import *
 from arcforge.core.model.relationships import *
-from arcforge.core.db.connection import *
 
-from arcforge.core.model.field import __all__ as fields_all
-from arcforge.core.model.relationships import __all__ as relationships_all
-from arcforge.core.db.connection import __all__ as connection_all
-
-# -----------------------------------------------------------------------------
-# Padrão de Projeto: Active Record
-# Cada classe derivada de Model representa uma tabela no banco de dados e
-# suas instâncias representam registros dessa tabela.
-#
-# Padrão de Projeto: Template Method (usado em __init_subclass__)
-# Garante que cada subclasse tenha sua própria lista de relacionamentos.
-# -----------------------------------------------------------------------------
 
 class Model:
-    """Classe base para modelos com gerenciamento automático de campos e relacionamentos.
-
-    Padrão: Active Record - cada instância representa uma linha da tabela e possui métodos
-    para persistência e manipulação dos dados.
-    """
     _table_name: str = None
 
     @classmethod
@@ -50,10 +32,7 @@ class Model:
             setattr(self, field, value)
 
     def _process_relationships(self, kwargs: Dict) -> None:
-        """Processa objetos passados em relacionamentos.
-
-        Padrão: Strategy Pattern - a estratégia para processar relacionamentos pode ser personalizada.
-        """
+        """ Processa objetos passados em relacionamentos. """
         # Itera sobre uma cópia dos itens para evitar modificar o dicionário durante a iteração
         for attr_name, value in list(kwargs.items()):
             if attr_name in self.__class__.__dict__:
@@ -66,20 +45,14 @@ class Model:
 
     @classmethod
     def _validate_fields(cls, kwargs: Dict) -> None:
-        """Valida se os campos fornecidos existem na classe.
-
-        Padrão: Defensive Programming - validação rigorosa para garantir a integridade dos dados.
-        """
+        """ Valida se os campos fornecidos existem na classe. """
         for field in kwargs:
             if not hasattr(cls, field):
                 raise AttributeError(f"Campo '{field}' não existe no modelo {cls.__name__}")
 
     @classmethod
     def _generate_fields(cls) -> str:
-        """Gera a definição SQL dos campos e relacionamentos.
-
-        Padrão: Template Method - define uma sequência de passos para construir a query SQL.
-        """
+        """ Gera a definição SQL dos campos e relacionamentos. """
         fields = []
         cls._relationships.clear()  # Garante que a lista de relacionamentos esteja limpa
 
@@ -96,10 +69,7 @@ class Model:
 
     @classmethod
     def _process_field_relationships(cls, attr_name: str, field: Field) -> None:
-        """Processa metadados de campos que são relacionamentos.
-
-        Padrão: Strategy Pattern - delega o processamento dos metadados conforme a configuração do campo.
-        """
+        """ Processa metadados de campos que são relacionamentos. """
         if field.foreign_key:
             cls._relationships.append({
                 "field_name": attr_name,
@@ -110,7 +80,7 @@ class Model:
 
     @classmethod
     def _store_relationship_metadata(cls, attr_name: str, relationship: Relationship) -> None:
-        """Armazena metadados de relacionamentos."""
+        """ Armazena metadados de relacionamentos. """
         cls._relationships.append({
             "field_name": f"{attr_name}_id",  # Adiciona o sufixo _id
             "ref_table": relationship.ref_table,
@@ -147,5 +117,3 @@ class ModelDTO(ABC):
         """Converte o DTO em um dicionário."""
         pass
 
-
-__all__ = ["Model","ModelDTO"] + fields_all + relationships_all + connection_all

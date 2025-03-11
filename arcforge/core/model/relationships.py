@@ -1,19 +1,16 @@
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Type, Union
-from arcforge.core.db.connection import DatabaseConnection  # Ajuste o caminho conforme sua estrutura
+from arcforge.core.db.manager import DatabaseManager  # Ajuste o caminho conforme sua estrutura
 
-# -----------------------------------------------------------------------------
-# Padrão de Projeto: Enum
-# A classe OnDeleteAction utiliza o padrão Enum para padronizar as ações disponíveis
-# na cláusula ON DELETE.
-# -----------------------------------------------------------------------------
+
 class OnDeleteAction(str, Enum):
     CASCADE = "CASCADE"
     RESTRICT = "RESTRICT"
     SET_NULL = "SET NULL"
     NO_ACTION = "NO ACTION"
     SET_DEFAULT = "SET DEFAULT"
+
 
 # -----------------------------------------------------------------------------
 # Padrão de Projeto: Template Method
@@ -80,8 +77,8 @@ class ManyToOne(Relationship):
         if fk_value is None:
             return None
 
-        # Obtém a instância única de DatabaseConnection e utiliza o método read para buscar o objeto
-        db = DatabaseConnection()
+        # Obtém a instância única de DatabaseManager e utiliza o método read para buscar o objeto
+        db = DatabaseManager.get_connection
         related_obj = db.read(self.related_class, fk_value)
         # Armazena o objeto carregado para evitar nova consulta
         instance.__dict__[self.attr_name] = related_obj

@@ -1,35 +1,20 @@
 import threading
+from typing import Any
 
 from jedi.plugins.django import mapping
 
 from arcforge.core.model.field import Field, ValidationError
 
 
-class Singleton(type):
-    _instances = {}
-    _lock = threading.Lock()  # Lock para evitar problemas em ambientes multithread
+class Util:
 
-    def __call__(cls, *args, **kwargs):
-        with cls._lock:
-            if cls not in cls._instances:
-                cls._instances[cls] = super().__call__(*args, **kwargs)
-        return cls._instances[cls]
-
-class Util(metaclass=Singleton):
-
-    # -----------------------------------------------------------------------------
-    # Design Pattern: Strategy Pattern
-    # A validação dos campos é delegada aos métodos de validação de cada Field.
-    # -----------------------------------------------------------------------------
-
-    def validationType(self, model, model_instance):
+    @staticmethod
+    def validationType(model, model_instance):
         """
         Valida os tipos dos campos de uma instância do modelo usando a validação
         já implementada nas classes de Field.
         """
-        # Itera sobre os atributos definidos na instância (evitando os atributos herdados da classe)
         for attr_name in model_instance.__dict__:
-            # Obtém o Field definido na classe, se existir
             field = getattr(model, attr_name, None)
             if isinstance(field, Field):
                 value = model_instance.__dict__[attr_name]
@@ -42,10 +27,11 @@ class Util(metaclass=Singleton):
                         value
                     )
 
-    def _row_to_object(self, model, row, columns) -> Any:
+    @staticmethod
+    def _row_to_object(model, row, columns):
         """Mapeia uma linha do banco para uma instância do modelo e seus relacionamentos corretamente."""
         instance = model()
-        related_instances = {}  # Armazena instâncias dos modelos relacionados
+        related_instances = {}
 
         for col, value in zip(columns, row):
             if "." in col:
@@ -53,9 +39,8 @@ class Util(metaclass=Singleton):
                 if table_name == model._table_name:
                     setattr(instance, column_name, value)
                 else:
-                    # Criar instância do modelo relacionado, se ainda não existir
                     if table_name not in related_instances:
-                        related_model = self._get_model_by_table(table_name)
+                        related_model = Util._get_model_by_table(table_name)
                         if related_model:
                             related_instances[table_name] = related_model()
 
@@ -64,16 +49,15 @@ class Util(metaclass=Singleton):
             else:
                 setattr(instance, col, value)
 
-        # Substituir referências ManyToOne pelo objeto real
         for rel in getattr(model, "_relationships", []):
             related_instance = related_instances.get(rel["ref_table"])
             if related_instance:
-                setattr(instance, rel["attr_name"], related_instance)  # `attr_name` é o nome real do campo
+                setattr(instance, rel["attr_name"], related_instance)
 
         return instance
 
-
-    def _get_model_by_table(self, table_name):
+    @staticmethod
+    def _get_model_by_table(table_name):
         """
         Retorna a classe do modelo associada a uma tabela.
         """

@@ -1,5 +1,14 @@
+import threading
+from typing import List, Any
+
+import psycopg
+from psycopg import sql
+
 from arcforge.core.db.dao import *
 import logging
+
+from arcforge.core.db.manager import DatabaseManager
+from arcforge.core.db.util import Util
 
 # -----------------------------------------------------------------------------
 # Configuração de Logging
@@ -7,16 +16,30 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class QueryBuilder:
+class Singleton(type):
+    _instances = {}
+    _lock = threading.Lock()  # Lock para evitar problemas em ambientes multithread
+
+    def __call__(cls, *args, **kwargs):
+        with cls._lock:
+            if cls not in cls._instances:
+                cls._instances[cls] = super().__call__(*args, **kwargs)
+        return cls._instances[cls]
+
+class QueryBuilder(metaclass=Singleton):
 
     def __init__(self):
-        self.manager = DatabaseConnection.get_connection
-        self.util = Util()
+        self.db_manager = DatabaseManager()
+
+    def _get_connection(self):
+        """Obtém a conexão ativa ou a reconecta, se necessário."""
+        connection = self.db_manager.get_connection()
+        return connection
 
     def execute_sql(self, query: str, params: List[Any]) -> List[Any]:
         """Executa uma consulta SQL personalizada."""
         try:
-            with self.manager.cursor() as cursor:
+            with self._get_connection().cursor() as cursor:
                 cursor.execute(query, params)
                 return cursor.fetchall()
         except psycopg.Error as e:
@@ -145,13 +168,13 @@ class QueryBuilder:
             )
 
             # Execução
-            with self.manager.cursor() as cursor:
+            with self._get_connection().cursor() as cursor:
                 cursor.execute(full_query, filter_values)
                 rows = cursor.fetchall()
                 columns = [desc[0] for desc in cursor.description]
 
                 # Converte as linhas em objetos
-                objects = [self._row_to_object(base_model, row, columns) for row in rows]
+                objects = [Util._row_to_object(base_model, row, columns) for row in rows]
 
                 # Retorna o objeto diretamente se houver apenas um resultado
                 if len(objects) == 1:

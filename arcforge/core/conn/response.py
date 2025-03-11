@@ -88,5 +88,3 @@ class Response:
         status_line = f"HTTP/1.1 {self.status} {self.status_message}"
         headers_lines = "\r\n".join(f"{key}: {value}" for key, value in self.headers.items())
         return f"{status_line}\r\n{headers_lines}\r\n\r\n{self.body}"
-
-__all__ = ["Response", "HttpStatus"]

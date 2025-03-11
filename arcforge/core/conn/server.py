@@ -75,6 +75,3 @@ class WebServer(metaclass=Singleton):
         else:
             logging.warning("Servidor não estava rodando.")
 
-
-__all__ = ["WebServer"]
-

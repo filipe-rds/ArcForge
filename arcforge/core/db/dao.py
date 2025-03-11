@@ -29,7 +29,7 @@ class DAO(metaclass=Singleton):
     def __init__(self):
         self.db_manager = DatabaseManager()
 
-    def _get_connection(self):
+    def __get_connection(self):
         """Obtém a conexão ativa ou a reconecta, se necessário."""
         connection = self.db_manager.get_connection()
         return connection
@@ -46,9 +46,9 @@ class DAO(metaclass=Singleton):
             fields=sql.SQL(fields_sql)
         )
         try:
-            with self._get_connection().cursor() as cursor:  # Usando a conexão obtida dinamicamente
+            with self.__get_connection().cursor() as cursor:  # Usando a conexão obtida dinamicamente
                 cursor.execute(create_table_query)
-                self._get_connection().commit()  # Commit na conexão
+                self.__get_connection().commit()  # Commit na conexão
                 logger.info(f"Tabela {base_model._table_name} criada com sucesso.")
         except psycopg.Error as e:
             logger.error(f"Erro ao criar a tabela {base_model._table_name}: {e}")
@@ -60,9 +60,9 @@ class DAO(metaclass=Singleton):
             table=sql.Identifier(base_model._table_name)
         )
         try:
-            with self._get_connection().cursor() as cursor:
+            with self.__get_connection().cursor() as cursor:
                 cursor.execute(drop_table_query)
-                self._get_connection().commit()
+                self.__get_connection().commit()
                 logger.info(f"Tabela {base_model._table_name} deletada com sucesso (cascade).")
         except psycopg.Error as e:
             logger.error(f"Erro ao deletar a tabela {base_model._table_name}: {e}")
@@ -85,9 +85,9 @@ class DAO(metaclass=Singleton):
             placeholders=sql.SQL(", ").join(placeholders)
         )
         try:
-            with self._get_connection().cursor() as cursor:
+            with self.__get_connection().cursor() as cursor:
                 cursor.execute(query, values)
-                self._get_connection().commit()
+                self.__get_connection().commit()
                 model_instance.id = cursor.fetchone()[0]
                 logger.info(f"Instância de {model_instance.__class__.__name__} salva com sucesso.")
                 return model_instance
@@ -117,9 +117,9 @@ class DAO(metaclass=Singleton):
         )
         values.append(model_id)
         try:
-            with self._get_connection().cursor() as cursor:
+            with self.__get_connection().cursor() as cursor:
                 cursor.execute(query, values)
-                self._get_connection().commit()
+                self.__get_connection().commit()
                 logger.info(f"Instância de {model_instance.__class__.__name__} atualizada com sucesso.")
                 return model_instance
         except psycopg.Error as e:
@@ -140,9 +140,9 @@ class DAO(metaclass=Singleton):
             table=sql.Identifier(model_class._table_name if model_class else "table_desconhecida")
         )
         try:
-            with self._get_connection().cursor() as cursor:
+            with self.__get_connection().cursor() as cursor:
                 cursor.execute(query, (object_id,))
-                self._get_connection().commit()
+                self.__get_connection().commit()
                 logger.info(f"Registro com ID {object_id} deletado com sucesso.")
         except psycopg.Error as e:
             logger.error(f"Erro ao deletar registro com ID {object_id}: {e}")
@@ -156,7 +156,7 @@ class DAO(metaclass=Singleton):
             table=sql.Identifier(model_class._table_name)
         )
         try:
-            with self._get_connection().cursor() as cursor:
+            with self.__get_connection().cursor() as cursor:
                 cursor.execute(query, (object_id,))
                 row = cursor.fetchone()
                 if row:
@@ -175,7 +175,7 @@ class DAO(metaclass=Singleton):
             table=sql.Identifier(model_class._table_name)
         )
         try:
-            with self._get_connection().cursor() as cursor:
+            with self.__get_connection().cursor() as cursor:
                 cursor.execute(query)
                 columns = [desc[0] for desc in cursor.description]
                 rows = cursor.fetchall()

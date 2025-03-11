@@ -29,11 +29,11 @@ class Singleton(type):
 class Query(metaclass=Singleton):
 
     def __init__(self):
-        self.db_manager = DatabaseManager()
+        self.__db_manager = DatabaseManager()
 
     def __get_connection(self):
         """Obtém a conexão ativa ou a reconecta, se necessário."""
-        connection = self.db_manager.get_connection()
+        connection = self.__db_manager.get_connection()
         return connection
 
     def execute_sql(self, query: str, params: List[Any]) -> List[Any]:

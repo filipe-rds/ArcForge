@@ -13,7 +13,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 class Singleton(type):
     _instances = {}
@@ -34,8 +34,26 @@ class DAO(metaclass=Singleton):
         connection = self.__db_manager.get_connection()
         return connection
 
+    def table_exists(self, table_name):
+        """Verifica se uma tabela já existe no banco de dados."""
+        query = sql.SQL("""
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_name = %s
+            );
+        """)
+
+        try:
+            with self.__get_connection().cursor() as cursor:
+                cursor.execute(query, (table_name,))
+                return cursor.fetchone()[0]  # Retorna True se a tabela existir, False caso contrário
+        except psycopg.Error as e:
+            logger.error(f"Erro ao verificar a existência da tabela {table_name}: {e}")
+            raise
+
     def create_table(self, base_model):
         """Cria a tabela no banco de dados com base no modelo fornecido."""
+
         fields_sql = base_model._generate_fields()
         create_table_query = sql.SQL(""" 
             CREATE TABLE IF NOT EXISTS {table} (
@@ -56,6 +74,7 @@ class DAO(metaclass=Singleton):
 
     def delete_table(self, base_model):
         """Deleta a tabela do banco de dados com base no modelo fornecido, removendo também as dependências (cascade)."""
+
         drop_table_query = sql.SQL("DROP TABLE IF EXISTS {table} CASCADE;").format(
             table=sql.Identifier(base_model._table_name)
         )
@@ -70,6 +89,11 @@ class DAO(metaclass=Singleton):
 
     def save(self, model_instance):
         """Salva (INSERT) a instância no banco de dados."""
+
+        # Cria a tabela do modelo caso ela não esteja criada
+        if not self.table_exists( model_instance._table_name):
+            self.create_table(model_instance._table_name)
+
         Util.validationType(model_instance.__class__, model_instance)
         columns = [attr for attr in model_instance.__dict__ if not attr.startswith("_")]
         values = [getattr(model_instance, col) for col in columns]

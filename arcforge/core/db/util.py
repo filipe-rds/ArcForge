@@ -33,32 +33,31 @@ class Util:
         instance = model()
         related_instances = {}
 
+        model_table_name = getattr(model, "_table_name", model.__name__.lower())  # Obtém o nome correto da tabela
+
         for col, value in zip(columns, row):
             if "." in col:
-                table_name, column_name = col.split(".")
-                if table_name == model._table_name:
+                table_name, column_name = col.split(".", 1)  # Divide apenas na primeira ocorrência
+
+                if table_name == model_table_name:
                     setattr(instance, column_name, value)
                 else:
+                    # Verifica se já existe uma instância do modelo relacionado, senão cria um dicionário básico
                     if table_name not in related_instances:
-                        related_model = Util._get_model_by_table(table_name)
-                        if related_model:
-                            related_instances[table_name] = related_model()
+                        related_instances[table_name] = {}
 
-                    if related_model:
-                        setattr(related_instances[table_name], column_name, value)
+                    related_instances[table_name][column_name] = value  # Armazena os valores temporariamente
             else:
                 setattr(instance, col, value)
 
+        # Verifica e instancia objetos relacionados corretamente
         for rel in getattr(model, "_relationships", []):
-            related_instance = related_instances.get(rel["ref_table"])
-            if related_instance:
-                setattr(instance, rel["attr_name"], related_instance)
+            related_table = rel["ref_table"]
+            related_class = rel["model_class"]
+            attr_name = rel["attr_name"]
+
+            if related_table in related_instances:
+                related_instance = related_class(**related_instances[related_table])  # Constrói o objeto com os dados
+                setattr(instance, attr_name, related_instance)  # Atribui o objeto ao modelo principal
 
         return instance
-
-    @staticmethod
-    def _get_model_by_table(table_name):
-        """
-        Retorna a classe do modelo associada a uma tabela.
-        """
-        return mapping.get(table_name, None)

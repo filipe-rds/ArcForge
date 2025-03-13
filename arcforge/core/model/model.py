@@ -54,18 +54,15 @@ class Model:
     def _generate_fields(cls) -> str:
         """ Gera a definição SQL dos campos e relacionamentos. """
         fields = []
-        cls._relationships.clear()  # Garante que a lista de relacionamentos esteja limpa
-
         for attr_name, field in cls.__dict__.items():
             if isinstance(field, Field):
                 fields.append(f"{attr_name} {field.to_sql()}")
                 cls._process_field_relationships(attr_name, field)
             elif isinstance(field, Relationship):
-                # Adiciona sufixo _id para indicar chave estrangeira
                 fields.append(f"{attr_name}_id {field.to_sql()}")
                 cls._store_relationship_metadata(attr_name, field)
-
         return ", ".join(fields)
+
 
     @classmethod
     def _process_field_relationships(cls, attr_name: str, field: Field) -> None:
@@ -80,13 +77,16 @@ class Model:
 
     @classmethod
     def _store_relationship_metadata(cls, attr_name: str, relationship: Relationship) -> None:
-        """ Armazena metadados de relacionamentos. """
+        """ Armazena metadados de relacionamentos, garantindo a inclusão da classe do modelo relacionado. """
         cls._relationships.append({
-            "field_name": f"{attr_name}_id",  # Adiciona o sufixo _id
+            "attr_name": attr_name,  # Nome do atributo no modelo
+            "field_name": f"{attr_name}_id",
             "ref_table": relationship.ref_table,
             "ref_field": getattr(relationship, 'ref_column', 'id'),
-            "unique": isinstance(relationship, OneToOne)
+            "model_class": relationship.related_class,  # Garante que temos a classe do modelo relacionado
+            "unique": isinstance(relationship, OneToOne),
         })
+
 
 
 

@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Type, Union
-from arcforge.core.db.manager import DatabaseManager  # Ajuste o caminho conforme sua estrutura
 
+from arcforge.core.db import DAO
 
 class OnDeleteAction(str, Enum):
     CASCADE = "CASCADE"
@@ -59,8 +59,14 @@ class ManyToOne(Relationship):
         self.related_class = related_class
 
     def __set_name__(self, owner, name):
-        # Armazena o nome do atributo no modelo (por exemplo, "cliente")
         self.attr_name = name
+        if not hasattr(owner, "_relationships"):
+            owner._relationships = []
+        owner._relationships.append({
+            "attr_name": self.attr_name,
+            "ref_table": self.ref_table,
+            "model_class": self.related_class
+        })
 
     def __get__(self, instance, owner):
         if instance is None:
@@ -77,9 +83,9 @@ class ManyToOne(Relationship):
         if fk_value is None:
             return None
 
-        # Obtém a instância única de DatabaseManager e utiliza o método read para buscar o objeto
-        db = DatabaseManager.get_connection
-        related_obj = db.read(self.related_class, fk_value)
+        # Obtém a instância única do DAO e utiliza o método read para buscar o objeto
+        dao = DAO()
+        related_obj = dao.read(self.related_class, fk_value)
         # Armazena o objeto carregado para evitar nova consulta
         instance.__dict__[self.attr_name] = related_obj
         return related_obj
@@ -113,18 +119,27 @@ class OneToOne(ManyToOne):
 # Implementação para relacionamento Many-to-Many (placeholder)
 # -----------------------------------------------------------------------------
 class ManyToMany(Relationship):
-    def __init__(self, through: Type, **kwargs):
+    def __init__(self, through: Type, related_class: Type):
         """
         Args:
             through: Classe da tabela de junção.
+            related_class: Classe relacionada.
         """
-        super().__init__(**kwargs)
+        super().__init__(related_class)
         if not hasattr(through, '_table_name'):
             raise AttributeError("A tabela de junção deve possuir '_table_name'")
         self.through_table = through._table_name
+        self.related_class = related_class
 
     def __set_name__(self, owner, name):
         self.attr_name = name
+        if not hasattr(owner, "_relationships"):
+            owner._relationships = []
+        owner._relationships.append({
+            "attr_name": self.attr_name,
+            "through_table": self.through_table,
+            "model_class": self.related_class
+        })
 
     def __get__(self, instance, owner):
         # O carregamento dinâmico de Many-to-Many geralmente requer uma consulta à tabela de junção.

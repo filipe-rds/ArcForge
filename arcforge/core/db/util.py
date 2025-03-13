@@ -28,36 +28,31 @@ class Util:
                     )
 
     @staticmethod
-    def _row_to_object(model, row, columns):
+    def _row_to_object(model, row, columns) -> Any:
         """Mapeia uma linha do banco para uma instância do modelo e seus relacionamentos corretamente."""
         instance = model()
         related_instances = {}
 
-        model_table_name = getattr(model, "_table_name", model.__name__.lower())  # Obtém o nome correto da tabela
-
         for col, value in zip(columns, row):
             if "." in col:
-                table_name, column_name = col.split(".", 1)  # Divide apenas na primeira ocorrência
-
-                if table_name == model_table_name:
+                table_name, column_name = col.split(".", 1)
+                if table_name == model._table_name:
                     setattr(instance, column_name, value)
                 else:
-                    # Verifica se já existe uma instância do modelo relacionado, senão cria um dicionário básico
                     if table_name not in related_instances:
                         related_instances[table_name] = {}
 
-                    related_instances[table_name][column_name] = value  # Armazena os valores temporariamente
+                    related_instances[table_name][column_name] = value
             else:
                 setattr(instance, col, value)
 
-        # Verifica e instancia objetos relacionados corretamente
         for rel in getattr(model, "_relationships", []):
-            related_table = rel["ref_table"]
-            related_class = rel["model_class"]
-            attr_name = rel["attr_name"]
+            related_table = rel.get("ref_table")
+            related_class = rel.get("model_class")
+            attr_name = rel.get("attr_name")
 
-            if related_table in related_instances:
-                related_instance = related_class(**related_instances[related_table])  # Constrói o objeto com os dados
-                setattr(instance, attr_name, related_instance)  # Atribui o objeto ao modelo principal
+            if related_table and related_class and related_table in related_instances:
+                related_instance = related_class(**related_instances[related_table])
+                setattr(instance, attr_name, related_instance)
 
         return instance

@@ -181,7 +181,7 @@ class DAO(metaclass=Singleton):
         )
         try:
             with self.__get_connection().cursor() as cursor:
-                cursor.execute(query, (object_id,))
+                cursor.execute(query, [object_id])
                 row = cursor.fetchone()
                 if row:
                     columns = [desc[0] for desc in cursor.description]

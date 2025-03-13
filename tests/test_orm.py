@@ -1,10 +1,12 @@
-from arcforge.core.model.model import *
+from arcforge.core.model import *
+from arcforge.core.db import *
 from colorama import Fore, Style, init
 
 # Inicializando o colorama
 init(autoreset=True)
 
-db = DatabaseConnection()
+dao = DAO()
+query = Query()
 
 # Modelos
 @Model.Table("tb_cliente")
@@ -21,8 +23,8 @@ class Pedido(Model):
 
 def setup_database():
     """Cria as tabelas necessárias para os testes."""
-    db.create_table(Cliente)
-    db.create_table(Pedido)
+    dao.create_table(Cliente)
+    dao.create_table(Pedido)
 
 def test_insert_clientes():
     """Insere múltiplos clientes na base de dados."""
@@ -35,7 +37,7 @@ def test_insert_clientes():
     ]
     clientes = []
     for data in clientes_data:
-        cliente = db.save(Cliente(**data))
+        cliente = dao.save(Cliente(**data))
         clientes.append(cliente)
         print(f"{Fore.GREEN}Cliente inserido: {Style.BRIGHT}{cliente}")
     return clientes
@@ -60,8 +62,8 @@ def test_insert_pedidos(clientes):
         produto1 = produtos[i % len(produtos)]
         produto2 = produtos[(i + 1) % len(produtos)]
 
-        pedido1 = db.save(Pedido(descricao=f"Compra de {produto1}", cliente=cliente))
-        pedido2 = db.save(Pedido(descricao=f"Compra de {produto2}", cliente=cliente))
+        pedido1 = dao.save(Pedido(descricao=f"Compra de {produto1}", cliente=cliente))
+        pedido2 = dao.save(Pedido(descricao=f"Compra de {produto2}", cliente=cliente))
 
         pedidos.extend([pedido1, pedido2])
         print(f"{Fore.GREEN}Pedido inserido: {Style.BRIGHT}{pedido1}")
@@ -72,30 +74,30 @@ def test_insert_pedidos(clientes):
 def test_update_pedido(pedido):
     """Atualiza a descrição de um pedido específico."""
     pedido.descricao = "Compra de Notebook Gamer ASUS ROG"
-    db.update(pedido)
-    pedido_atualizado = db.read(Pedido, pedido.id)
+    dao.update(pedido)
+    pedido_atualizado = dao.read(Pedido, pedido.id)
     print(f"{Fore.GREEN}Pedido atualizado: {Style.BRIGHT}{pedido_atualizado}")
 
 def test_query_pedidos():
     """Consulta e exibe todos os pedidos registrados."""
-    result = db.query(Pedido, order_by="id")
+    result = query.execute(Pedido, order_by="id")
     print(f"\n{Fore.GREEN}Todos os pedidos registrados:")
     colunas = ['ID ','Descrição','Cliente Vinculado']
     print(f"{colunas[0]:<3} | {colunas[1]:<40} | {colunas[2]}\n")
     for pedido in result:
-        print(f"{pedido.id:<3} | {pedido.descricao:<40} | Cliente: {pedido.cliente}")
+        print(f"{pedido.id:<3} | {pedido.descricao:<40} | {pedido.cliente}")
 
 def test_delete_pedido(pedido):
     """Deleta um pedido específico e verifica a exclusão."""
-    db.delete(pedido)
-    pedido_deletado = db.read(Pedido, pedido.id)
+    dao.delete(pedido)
+    pedido_deletado = dao.read(Pedido, pedido.id)
     assert pedido_deletado is None, "O pedido deveria ter sido removido do banco."
     print(f"{Fore.RED}Pedido deletado: {Style.BRIGHT}{pedido.id}")
 
 def delete_all():
     """Exclui todas as tabelas utilizadas para os testes."""
-    db.delete_table(Pedido)  # Excluímos primeiro a tabela com chaves estrangeiras
-    db.delete_table(Cliente)
+    dao.delete_table(Pedido)  # Excluímos primeiro a tabela com chaves estrangeiras
+    dao.delete_table(Cliente)
 
 # Executando os testes
 if __name__ == "__main__":

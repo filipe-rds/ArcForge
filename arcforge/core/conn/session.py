@@ -23,3 +23,6 @@ class Session:
     def delete(self):
         if self.session_id in self.sessions:
             del self.sessions[self.session_id]
+    
+    def get_cookies(self):
+        return {"session_id": self.session_id} if self.session_id else {}

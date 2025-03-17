@@ -1,6 +1,6 @@
-from enum import Enum
 import json
 import http.cookies
+from enum import Enum
 
 class HttpStatus(Enum):
     OK = (200, "OK")
@@ -18,73 +18,47 @@ class HttpStatus(Enum):
 
     def __str__(self):
         return f"{self.code} {self.message}"
-    
 
-# -----------------------------------------------------------------------------
-# Design Pattern: Builder
-# A classe Response utiliza o padrão Builder para construir uma resposta HTTP de
-# forma estruturada e passo a passo. Esse padrão é ideal para objetos complexos,
-# como uma resposta HTTP, que envolve múltiplos componentes (status, headers,
-# corpo da resposta e cookies).
-# -----------------------------------------------------------------------------
-
-class Response:
-    def __init__(self, status: HttpStatus, data=None, cookies=None):
-        self.status = status.code
-        self.status_message = status.message
-        self.cookies = cookies or {}
-        self.body = self._serialize(data)
-        self.headers = self._build_headers()
-        
-
-    def _serialize(self, data) -> str:
+class JsonSerializer:
+    """Responsável por serializar objetos para JSON."""
+    @staticmethod
+    def serialize(data) -> str:
         if data is None:
             return ""
-        if isinstance(data, (dict, list)):
-            try:
-                return json.dumps(data, default=self._default_serializer, indent=4, ensure_ascii=False)
-            except Exception as e:
-                raise ValueError("Erro ao serializar os dados para JSON.") from e
-        if isinstance(data, str):
-            return data
-        try:
-            return json.dumps(data, default=self._default_serializer, indent=4, ensure_ascii=False)
-        except Exception as e:
-            raise ValueError(f"Erro ao serializar o objeto {type(data).__name__} para JSON.") from e
+        if isinstance(data, (dict, list, str)):
+            return json.dumps(data, indent=4, ensure_ascii=False)
+        if hasattr(data, "__dict__"):
+            return json.dumps(data.__dict__, indent=4, ensure_ascii=False)
+        raise TypeError(f"Objeto do tipo {type(data).__name__} não é serializável")
 
-    def _default_serializer(self, obj):
-        if hasattr(obj, "__dict__"):
-            return obj.__dict__
-        raise TypeError(f"Objeto do tipo {type(obj).__name__} não é serializável")
+class Response:
+    def __init__(self, status: HttpStatus, data=None, headers=None, cookies=None):
+        self.status = status.code
+        self.status_message = status.message
+        self.body = JsonSerializer.serialize(data)
+        self.headers = headers or {}
+        self.cookies = cookies or {}
 
-    def _build_headers(self) -> dict:
-        headers = {}
+        self._set_default_headers()
+
+    def _set_default_headers(self):
+        """Define os headers padrão da resposta."""
         if self.body:
-            body_strip = self.body.lstrip()
-            if body_strip.startswith("{") or body_strip.startswith("["):
-                headers["Content-Type"] = "application/json; charset=utf-8"
-            else:
-                headers["Content-Type"] = "text/plain; charset=utf-8"
-            headers["Content-Length"] = str(len(self.body.encode("utf-8")))
+            self.headers.setdefault("Content-Type", "application/json; charset=utf-8")
+            self.headers.setdefault("Content-Length", str(len(self.body.encode("utf-8"))))
         else:
-            headers["Content-Type"] = "text/plain; charset=utf-8"
-        
-        # Adiciona os cookies ao cabeçalho apenas se existirem.
-        if self.cookies:  # Só inclui "Set-Cookie" se houver cookies
-            cookies = self._build_cookies()
-            headers["Set-Cookie"] = cookies
-        return headers
+            self.headers.setdefault("Content-Type", "text/plain; charset=utf-8")
+
+        # Adiciona cookies, se houver
+        if self.cookies:
+            self.headers["Set-Cookie"] = self._build_cookies()
 
     def _build_cookies(self) -> str:
-        cookie_str = []
-        for key, value in self.cookies.items():
-            cookie = http.cookies.SimpleCookie()
-            # Converte o valor para string explicitamente
-            cookie[key] = str(value)
-            cookie_str.append(cookie.output(header="", sep="").strip())
-        return "; ".join(cookie_str)
+        """Gera a string de cookies para o cabeçalho HTTP."""
+        return "; ".join(f"{key}={value}" for key, value in self.cookies.items())
 
     def to_http_response(self) -> str:
+        """Retorna a resposta HTTP formatada."""
         status_line = f"HTTP/1.1 {self.status} {self.status_message}"
         headers_lines = "\r\n".join(f"{key}: {value}" for key, value in self.headers.items())
         return f"{status_line}\r\n{headers_lines}\r\n\r\n{self.body}"

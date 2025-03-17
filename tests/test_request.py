@@ -1,14 +1,16 @@
 from arcforge.core.model.model import *
-from arcforge.core.conn.controller import *
+# from arcforge.core.conn.controller import *
 from colorama import Fore, Style, init
 import random
-
+from arcforge.core.db import *
+from arcforge.core.conn import *
 
 # Inicializa o colorama
 init(autoreset=True)
 
 # Inicializa a conexão com o banco
-db = DatabaseConnection()
+dao = DAO()
+query = Query()
 
 # Modelo Cliente
 @Model.Table("tb_cliente")
@@ -54,8 +56,8 @@ class PedidoListDTO(ModelDTO):
 # Configuração do banco e inserção de dados
 def setup_database():
     # Cria as tabelas
-    db.create_table(Cliente)
-    db.create_table(Pedido)
+    dao.create_table(Cliente)
+    dao.create_table(Pedido)
 
     # Inserindo vários clientes
     clientes_data = [
@@ -72,7 +74,7 @@ def setup_database():
     ]
     clientes = []
     for data in clientes_data:
-        cliente = db.save(Cliente(**data))
+        cliente = dao.save(Cliente(**data))
         clientes.append(cliente)
         print(f"{Fore.GREEN}Cliente inserido: {Style.BRIGHT}{cliente}")
 
@@ -95,107 +97,81 @@ def setup_database():
         for _ in range(2):
             produto = random.choice(produtos)
             descricao = f"Compra de {produto} para {cliente.nome}"
-            pedido = db.save(Pedido(descricao=descricao, cliente=cliente))
+            pedido = dao.save(Pedido(descricao=descricao, cliente=cliente))
             print(f"{Fore.GREEN}Pedido inserido: {Style.BRIGHT}{pedido}")
 
 # Função para excluir todas as tabelas (importante excluir primeiro a tabela com relacionamentos)
 def delete_all():
-    db.delete_table(Pedido)
-    db.delete_table(Cliente)
+    dao.delete_table(Pedido)
+    dao.delete_table(Cliente)
     print(f"{Fore.RED}Todas as tabelas foram excluídas.")
 
 # Controlador para Cliente
 class ClienteController(Controller):
-    @RequestHandler.route("/clientes", "GET")
-    def get_clientes(handler):
-        clientes = db.find_all(Cliente)
+    
+    @Router.route("/clientes", "GET")
+    def get_clientes(request: Request):
+        """Retorna todos os clientes cadastrados"""
+        clientes = dao.find_all(Cliente)
         if clientes:
-            # Serializa cada pedido incluindo o cliente completo
             serialized_clientes = [ClienteListDTO(cliente).to_dict() for cliente in clientes]
             return Response(HttpStatus.OK, serialized_clientes)
         return Response(HttpStatus.NOT_FOUND, {"error": "Nenhum cliente encontrado"})
 
-    @RequestHandler.route("/clientes/{id}", "GET")
-    def get_cliente(handler, id):
-        cliente = db.read(Cliente, id)
+    @Router.route("/clientes/{id}", "GET")
+    def get_cliente(request: Request, id):
+        """Retorna um cliente pelo ID"""
+        cliente = dao.read(Cliente, id)
         if cliente:
             return Response(HttpStatus.OK, cliente)
         return Response(HttpStatus.NOT_FOUND, {"error": "Cliente não encontrado"})
 
-    @RequestHandler.route("/clientes", "POST")
-    def create_cliente(handler, novoCliente):  # O body já chega pronto como dicionário
-        cliente = Cliente(**novoCliente)
-        db.save(cliente)
+    @Router.route("/clientes", "POST")
+    def create_cliente(request: Request):
+        """Cria um novo cliente com os dados fornecidos no corpo da requisição"""
+        novo_cliente_data = request.body  # O body agora está dentro da instância de Request
+        cliente = Cliente(**novo_cliente_data)
+        dao.save(cliente)
         print(f"{Fore.GREEN}Cliente inserido via API: {Style.BRIGHT}{cliente}")
         return Response(HttpStatus.CREATED, cliente)
-
-    @RequestHandler.route("/clientes/{id}", "PUT")
-    def update_cliente(handler, body, id):
-        cliente = db.read(Cliente, id)
-        if not cliente:
-            return Response(HttpStatus.NOT_FOUND, {"error": "Cliente não encontrado"})
-        for key, value in body.items():
-            setattr(cliente, key, value)
-        db.update(cliente)
-        return Response(HttpStatus.OK, cliente)
-
+    
 # Controlador para Pedido
 class PedidoController(Controller):
-    @RequestHandler.route("/pedidos", "GET")
-    def get_pedidos(handler):
-        pedidos = db.find_all(Pedido)
+    @Router.route("/pedidos", "GET")
+    def get_pedidos(request: Request):
+        pedidos = dao.find_all(Pedido)
         if pedidos:
-            # Serializa cada pedido incluindo o cliente completo
             serialized_pedidos = [PedidoListDTO(pedido).to_dict() for pedido in pedidos]
             return Response(HttpStatus.OK, serialized_pedidos)
         return Response(HttpStatus.NOT_FOUND, {"error": "Nenhum pedido encontrado"})
 
-    @RequestHandler.route("/pedidos/{id}", "GET")
-    def get_pedido(handler, id):
-        pedido = db.read(Pedido, id)
+    @Router.route("/pedidos/{id}", "GET")
+    def get_pedido(request: Request, id):
+        pedido = dao.read(Pedido, id)
         if pedido:
             return Response(HttpStatus.OK, pedido)
         return Response(HttpStatus.NOT_FOUND, {"error": "Pedido não encontrado"})
 
-    @RequestHandler.route("/pedidos", "POST")
-    def create_pedido(handler, novoPedido):
-        # Supondo que novoPedido seja um dicionário com 'descricao' e 'cliente_id'
-        cliente = db.read(Cliente, novoPedido.get("cliente_id"))
+    @Router.route("/pedidos", "POST")
+    def create_pedido(request: Request):
+        cliente = dao.read(Cliente, request.body.get("cliente_id"))
         if not cliente:
             return Response(HttpStatus.NOT_FOUND, {"error": "Cliente não encontrado para o pedido"})
-        pedido = Pedido(descricao=novoPedido.get("descricao"), cliente=cliente)
-        db.save(pedido)
+        pedido = Pedido(descricao= request.body.get("descricao"), cliente=cliente)
+        dao.save(pedido)
         print(f"{Fore.GREEN}Pedido inserido via API: {Style.BRIGHT}{pedido}")
         return Response(HttpStatus.CREATED, pedido)
 
-    @RequestHandler.route("/pedidos/{id}", "PUT")
-    def update_pedido(handler, body, id):
-        pedido = db.read(Pedido, id)
-        if not pedido:
-            return Response(HttpStatus.NOT_FOUND, {"error": "Pedido não encontrado"})
-        for key, value in body.items():
-            if key == "cliente_id":  # Atualiza o relacionamento se necessário
-                cliente = db.read(Cliente, value)
-                if not cliente:
-                    return Response(HttpStatus.NOT_FOUND, {"error": "Cliente não encontrado para o pedido"})
-                setattr(pedido, "cliente", cliente)
-            else:
-                setattr(pedido, key, value)
-        db.update(pedido)
-        return Response(HttpStatus.OK, pedido)
     
 class AuthController(Controller):
-    @RequestHandler.route("/login", "POST")
-    def login(handler, body):
-        handler.init_session()  # Garante que a sessão seja iniciada
-        
-        # Verifica se o campo "email" foi enviado
-        email = body.get("email")
+    @Router.route("/login", "POST")
+    def login(request: Request):
+        """Realiza o login do cliente e armazena na sessão"""
+        email = request.body.get("email")
         if not email:
             return Response(HttpStatus.BAD_REQUEST, {"error": "O campo 'email' é obrigatório"})
         
-        # Consulta o cliente pelo e-mail
-        cliente = db.query(Cliente, order_by="id", email=email)
+        cliente = query.execute(Cliente, order_by="id", email=email)
         if not cliente:
             return Response(HttpStatus.UNAUTHORIZED, {"error": "E-mail não encontrado"})
         
@@ -203,36 +179,31 @@ class AuthController(Controller):
         cliente_dto = ClienteListDTO(cliente)
         
         # Armazena o cliente na sessão
-        handler.set_session("cliente", cliente_dto.to_dict())
+        request.session.set("cliente", cliente_dto.to_dict())
         
         # Retorna uma resposta de sucesso
         return Response(HttpStatus.OK, {"message": "Login bem-sucedido", "cliente": cliente_dto.to_dict()})
     
-    @RequestHandler.route("/session", "GET")
-    def check_session(handler):
-        handler.init_session()  # Garante que a sessão esteja iniciada
-        session_data = handler.get_session("cliente", default="Não encontrado")  # Usando get_session para acessar o valor
+    @Router.route("/session", "GET")
+    def check_session(request: Request):
+        cliente_data = request.session.get("cliente", "Não encontrado")
+        
+        # Verifica se é um tipo serializável para a resposta JSON
+        if not isinstance(cliente_data, (dict, list, str, int, float, bool, type(None))):
+            cliente_data = str(cliente_data)
+        
+        return Response(HttpStatus.OK, {
+            "message": "Sessão ativa",
+            "session_id": request.session.session_id,
+            "cliente_data": cliente_data
+        })
 
-        if not isinstance(session_data, dict):
-            session_data = str(session_data)
-
-        return Response(HttpStatus.OK, {"message": "Sessão ativa", "session_data": session_data})
-
-    @RequestHandler.route("/logout", "GET")
-    def logout(handler):
-        """Rota de logout que chama o método logout e retorna a resposta com o cookie expirado."""
-        # Inicia ou recupera a sessão
-        handler.init_session()
-
-        # Chama o método logout para limpar a sessão e cookie
-        cookie = handler.del_session()
-
-        # Retorna a resposta com o status OK e o cookie expirado
-        return Response(
-            HttpStatus.OK,
-            {"message": "Logout realizado com sucesso"},
-            cookies=cookie  # Passa o cookie expirado para a resposta
-        )
+    @Router.route("/logout", "POST")
+    def logout(request: Request):
+        # Limpa os dados da sessão
+        request.session.delete()
+        
+        return Response(HttpStatus.OK, {"message": "Logout realizado com sucesso"})
 
 if __name__ == "__main__":
     setup_database()

@@ -1,8 +1,6 @@
 import threading
 from typing import Any
 
-from jedi.plugins.django import mapping
-
 from arcforge.core.model.field import Field, ValidationError
 
 

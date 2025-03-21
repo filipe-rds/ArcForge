@@ -56,11 +56,10 @@ class RequestHandler(BaseHTTPRequestHandler):
             try:
                 response = route(request, **params)
                 if isinstance(response, Response):
-                    # Adicionar cookies da sessão à resposta
                     if not response.cookies:
                         response.cookies = {}
                     response.cookies.update(self.session.get_cookies())
-                    self._serve_json(response)
+                    self._serve_response(response)
                     return
                 return
             except Exception as e:
@@ -68,7 +67,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 return
         self._not_found()
 
-    def _serve_json(self, response: Response):
+    def _serve_response(self, response: Response):
         self.send_response(response.status)
         
         # Escrevendo os headers corretamente
@@ -87,8 +86,8 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def _not_found(self):
         """Retorna um erro 404 para rotas não encontradas."""
-        self._serve_json(Response(HttpStatus.NOT_FOUND, {"error": "Rota não encontrada"}))
+        self._serve_response(Response(HttpStatus.NOT_FOUND, {"error": "Rota não encontrada"}))
 
     def _internal_server_error(self, error_message: str):
         """Retorna um erro 500 para exceções internas."""
-        self._serve_json(Response(HttpStatus.INTERNAL_SERVER_ERROR, {"error": "Erro interno do servidor", "details": error_message}))
+        self._serve_response(Response(HttpStatus.INTERNAL_SERVER_ERROR, {"error": "Erro interno do servidor", "details": error_message}))

@@ -32,12 +32,19 @@ class JsonSerializer:
         raise TypeError(f"Objeto do tipo {type(data).__name__} não é serializável")
 
 class Response:
-    def __init__(self, status: HttpStatus, data=None, headers=None, cookies=None):
+    def __init__(self, status: HttpStatus, data=None, headers=None, cookies=None, content_type="application/json"):
         self.status = status.code
         self.status_message = status.message
-        self.body = JsonSerializer.serialize(data)
         self.headers = headers or {}
         self.cookies = cookies or {}
+        self.content_type = content_type
+
+        if content_type == "text/html":
+            self.body = data if isinstance(data, str) else ""
+            self.headers.setdefault("Content-Type", "text/html; charset=utf-8")
+        else:
+            self.body = JsonSerializer.serialize(data)
+            self.headers.setdefault("Content-Type", "application/json; charset=utf-8")
 
         self._set_default_headers()
 

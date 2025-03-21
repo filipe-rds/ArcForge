@@ -1,13 +1,16 @@
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 import os
 
 class TemplateEngine:
     """
     Classe responsável por gerenciar a renderização de templates com Jinja2.
+    Sempre busca os templates na pasta fixa 'templates' dentro do projeto.
     """
-    def __init__(self, template_dir="templates"):
-        self.template_dir = template_dir
-        self.env = Environment(loader=FileSystemLoader(template_dir))
+    def __init__(self):
+        # Obtém o diretório raiz do projeto e fixa o caminho dos templates
+        project_root = os.path.dirname(os.path.abspath(__file__))  # Caminho do arquivo atual
+        self.template_dir = os.path.join(project_root, "templates")  # templates dentro do projeto
+        self.env = Environment(loader=FileSystemLoader(self.template_dir))
 
     def render_template(self, template_name, **context):
         """
@@ -16,8 +19,10 @@ class TemplateEngine:
         try:
             template = self.env.get_template(template_name)
             return template.render(context)
+        except TemplateNotFound:
+            raise FileNotFoundError(f"Template '{template_name}' não encontrado em '{self.template_dir}'")
         except Exception as e:
-            return f"Erro ao renderizar template {template_name}: {e}"
+            raise RuntimeError(f"Erro ao renderizar template '{template_name}': {e}")
 
 # Criando uma instância global do TemplateEngine
 template_engine = TemplateEngine()

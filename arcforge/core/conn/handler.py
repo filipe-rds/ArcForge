@@ -7,7 +7,7 @@ from functools import wraps
 from http.server import BaseHTTPRequestHandler
 from arcforge.core.conn import session
 from arcforge.core.conn.request import Request
-from arcforge.core.conn.response import Response, HttpStatus
+from arcforge.core.conn.response import Response, HttpStatus, IResponse
 from http.cookies import SimpleCookie
 
 from arcforge.core.conn.router import Router
@@ -55,6 +55,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         if match:
             try:
                 response = route(request, **params)
+
+                if isinstance(response, IResponse):
+                    response = response.to_http_response()
+
+
                 if isinstance(response, Response):
                     if not response.cookies:
                         response.cookies = {}

@@ -1,6 +1,7 @@
 import json
 import http.cookies
 from enum import Enum
+from abc import ABC, abstractmethod
 
 class HttpStatus(Enum):
     OK = (200, "OK")
@@ -69,3 +70,48 @@ class Response:
         status_line = f"HTTP/1.1 {self.status} {self.status_message}"
         headers_lines = "\r\n".join(f"{key}: {value}" for key, value in self.headers.items())
         return f"{status_line}\r\n{headers_lines}\r\n\r\n{self.body}"
+
+
+
+class IResponse(ABC):
+    """Interface para respostas HTTP"""
+
+    def __init__(self, status: HttpStatus, content_type: str, headers=None, cookies=None):
+        self.status = status
+        self.headers = headers or {}
+        self.cookies = cookies or {}
+        self.content_type = content_type
+
+        # # Define o Content-Type automaticamente
+        # self.headers.setdefault("Content-Type", f"{self.content_type}; charset=utf-8")
+
+    @abstractmethod
+    def to_http_response(self) -> str:
+        """Método abstrato para gerar a resposta HTTP"""
+        pass
+
+
+class JsonResponse(IResponse):
+    """Resposta no formato JSON"""
+
+    def __init__(self, status: HttpStatus= HttpStatus.OK, data=None, headers=None, cookies=None):
+        super().__init__(status, "application/json", headers, cookies)
+        self.data = data
+
+    def to_response(self) -> Response:
+        """Retorna um objeto Response formatado"""
+        return Response(status= self.status, data= self.body, headers=self.headers, cookies=self.cookies,content_type=self.content_type)
+    
+
+class HtmlResponse(IResponse):
+    """Resposta no formato HTML"""
+
+    def __init__(self, status: HttpStatus, data="", headers=None, cookies=None):
+        super().__init__(status, "text/html", headers, cookies)
+        self.data = data
+
+    def to_response(self) -> Response:
+        """Retorna um objeto Response formatado"""
+        return Response(status=self.status, data=self.body, headers=self.headers, cookies=self.cookies,content_type= self.content_type)
+
+

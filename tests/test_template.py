@@ -132,13 +132,10 @@ class AuthController(Controller):
     def login(request: Request):
         """Processa o login e armazena na sessão."""
         
-        
-        print(request.form)
-        print(request.body)
         nome = request.form.get("nome")
         email = request.form.get("email")
 
-        print(f"nome: {nome} email: {email}")
+        # print(f"nome: {nome} email: {email}")
 
         if not nome or not email:
             return HtmlResponse(HttpStatus.BAD_REQUEST, "<h1>Nome e email são obrigatórios!</h1>")
@@ -162,7 +159,7 @@ class AuthController(Controller):
     def dashboard(request: Request):
         """Mostra a página do usuário logado."""
         user = request.session.get("user")  # Obtém a sessão corretamente
-
+        
         if not user:
             return RedirectResponse("/login")
 

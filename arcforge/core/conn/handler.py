@@ -57,7 +57,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 response = route(request, **params)
 
                 if isinstance(response, IResponse):
-                    response = response.to_http_response()
+                    response = response.to_response()
 
 
                 if isinstance(response, Response):
@@ -85,6 +85,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_header("Set-Cookie", f"{key}={value}; Path=/; HttpOnly")
         
         self.end_headers()
+
+        if response.status == HttpStatus.FOUND:  
+            return
 
         if response.body:
             self.wfile.write(response.body.encode("utf-8"))

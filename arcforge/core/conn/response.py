@@ -12,6 +12,7 @@ class HttpStatus(Enum):
     FORBIDDEN = (403, "Forbidden")
     NOT_FOUND = (404, "Not Found")
     INTERNAL_SERVER_ERROR = (500, "Internal Server Error")
+    FOUND = (302, "Found")
 
     def __init__(self, code, message):
         self.code = code
@@ -86,7 +87,7 @@ class IResponse(ABC):
         # self.headers.setdefault("Content-Type", f"{self.content_type}; charset=utf-8")
 
     @abstractmethod
-    def to_http_response(self) -> str:
+    def to_response(self) -> str:
         """Método abstrato para gerar a resposta HTTP"""
         pass
 
@@ -96,7 +97,7 @@ class JsonResponse(IResponse):
 
     def __init__(self, status: HttpStatus= HttpStatus.OK, data=None, headers=None, cookies=None):
         super().__init__(status, "application/json", headers, cookies)
-        self.data = data
+        self.body = data
 
     def to_response(self) -> Response:
         """Retorna um objeto Response formatado"""
@@ -108,10 +109,17 @@ class HtmlResponse(IResponse):
 
     def __init__(self, status: HttpStatus, data="", headers=None, cookies=None):
         super().__init__(status, "text/html", headers, cookies)
-        self.data = data
+        self.body = data
 
     def to_response(self) -> Response:
         """Retorna um objeto Response formatado"""
         return Response(status=self.status, data=self.body, headers=self.headers, cookies=self.cookies,content_type= self.content_type)
 
 
+class RedirectResponse(IResponse):
+    def __init__(self, location: str, status=HttpStatus.FOUND):
+        self.location = location
+        self.status = status
+
+    def to_response(self):
+        return Response(self.status, headers={"Location": self.location})

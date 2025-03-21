@@ -2,3 +2,4 @@ python-dotenv
 psycopg[binary]
 colorama
 Jinja2
+setuptools

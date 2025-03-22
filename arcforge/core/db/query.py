@@ -1,14 +1,8 @@
-import threading
+from arcforge.core.db.util import Util
 from typing import List, Any
-
 import psycopg
 from psycopg import sql
-
-from arcforge.core.db.dao import *
 import logging
-
-from arcforge.core.db.manager import DatabaseManager
-from arcforge.core.db.util import Util
 
 # -----------------------------------------------------------------------------
 # Configuração de Logging
@@ -16,19 +10,12 @@ from arcforge.core.db.util import Util
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class Singleton(type):
-    _instances = {}
-    _lock = threading.Lock()  # Lock para evitar problemas em ambientes multithread
 
-    def __call__(cls, *args, **kwargs):
-        with cls._lock:
-            if cls not in cls._instances:
-                cls._instances[cls] = super().__call__(*args, **kwargs)
-        return cls._instances[cls]
-
-class Query(metaclass=Singleton):
+class Query:
 
     def __init__(self):
+        from .manager import DatabaseManager
+
         self.__db_manager = DatabaseManager()
 
     def __get_connection(self):
@@ -36,8 +23,181 @@ class Query(metaclass=Singleton):
         connection = self.__db_manager.get_connection()
         return connection
 
-    def execute_sql(self, query: str, params: List[Any]) -> List[Any]:
+    def table_exists(self, table_name):
+        """Verifica se uma tabela já existe no banco de dados."""
+        query = sql.SQL("""
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_name = %s
+            );
+        """)
+
+        try:
+            with self.__get_connection().cursor() as cursor:
+                cursor.execute(query, (table_name,))
+                return cursor.fetchone()[0]  # Retorna True se a tabela existir, False caso contrário
+        except psycopg.Error as e:
+            logger.error(f"Erro ao verificar a existência da tabela {table_name}: {e}")
+            raise
+
+    def create_table(self, base_model):
+        """Cria a tabela no banco de dados com base no modelo fornecido."""
+
+        fields_sql = base_model._generate_fields()
+        create_table_query = sql.SQL(""" 
+            CREATE TABLE IF NOT EXISTS {table} (
+                {fields}
+            );
+        """).format(
+            table=sql.Identifier(base_model._table_name),
+            fields=sql.SQL(fields_sql)
+        )
+        try:
+            with self.__get_connection().cursor() as cursor:  # Usando a conexão obtida dinamicamente
+                cursor.execute(create_table_query)
+                self.__get_connection().commit()  # Commit na conexão
+                logger.info(f"Tabela {base_model._table_name} criada com sucesso.")
+        except psycopg.Error as e:
+            logger.error(f"Erro ao criar a tabela {base_model._table_name}: {e}")
+            raise
+
+    def delete_table(self, base_model):
+        """Deleta a tabela do banco de dados com base no modelo fornecido, removendo também as dependências (cascade)."""
+
+        drop_table_query = sql.SQL("DROP TABLE IF EXISTS {table} CASCADE;").format(
+            table=sql.Identifier(base_model._table_name)
+        )
+        try:
+            with self.__get_connection().cursor() as cursor:
+                cursor.execute(drop_table_query)
+                self.__get_connection().commit()
+                logger.info(f"Tabela {base_model._table_name} deletada com sucesso (cascade).")
+        except psycopg.Error as e:
+            logger.error(f"Erro ao deletar a tabela {base_model._table_name}: {e}")
+            raise
+
+    def save(self, model_instance):
+        """Salva (INSERT) a instância no banco de dados."""
+
+        Util.validationType(model_instance.__class__, model_instance)
+        columns = [attr for attr in model_instance.__dict__ if not attr.startswith("_")]
+        values = [getattr(model_instance, col) for col in columns]
+        placeholders = [sql.Placeholder() for _ in columns]
+
+        query = sql.SQL(""" 
+            INSERT INTO {table} ({fields})
+            VALUES ({placeholders})
+            RETURNING id;
+        """).format(
+            table=sql.Identifier(model_instance._table_name),
+            fields=sql.SQL(", ").join(map(sql.Identifier, columns)),
+            placeholders=sql.SQL(", ").join(placeholders)
+        )
+        try:
+            with self.__get_connection().cursor() as cursor:
+                cursor.execute(query, values)
+                self.__get_connection().commit()
+                model_instance.id = cursor.fetchone()[0]
+                logger.info(f"Instância de {model_instance.__class__.__name__} salva com sucesso.")
+                return model_instance
+        except psycopg.Error as e:
+            logger.error(f"Erro ao salvar a instância {model_instance._table_name}: {e}")
+            raise
+
+    def update(self, model_instance):
+        """Atualiza (UPDATE) a instância no banco de dados."""
+        Util.validationType(model_instance.__class__, model_instance)
+        model_id = getattr(model_instance, "id", None)
+        if not model_id:
+            raise ValueError("Não é possível realizar o UPDATE sem um ID válido.")
+
+        columns = [attr for attr in model_instance.__dict__ if not attr.startswith("_") and attr != "id"]
+        set_clauses = [sql.SQL("{} = {}").format(sql.Identifier(col), sql.Placeholder()) for col in columns]
+        values = [getattr(model_instance, col) for col in columns]
+
+        query = sql.SQL(""" 
+            UPDATE {table}
+            SET {set_clause}
+            WHERE id = {id_placeholder}
+        """).format(
+            table=sql.Identifier(model_instance._table_name),
+            set_clause=sql.SQL(", ").join(set_clauses),
+            id_placeholder=sql.Placeholder()
+        )
+        values.append(model_id)
+        try:
+            with self.__get_connection().cursor() as cursor:
+                cursor.execute(query, values)
+                self.__get_connection().commit()
+                logger.info(f"Instância de {model_instance.__class__.__name__} atualizada com sucesso.")
+                return model_instance
+        except psycopg.Error as e:
+            logger.error(f"Erro ao atualizar a instância {model_instance._table_name}: {e}")
+            raise
+
+    def delete(self, model_class, object_id):
+        """Deleta um registro do banco passando um objeto da classe modelo ou um ID."""
+
+        if not isinstance(object_id, int):
+            raise TypeError(f"O ID deve ser um número inteiro. Recebido: {type(object_id)}")
+
+
+        query = sql.SQL(""" 
+            DELETE FROM {table} WHERE id = %s;
+        """).format(
+            table=sql.Identifier(model_class._table_name)
+        )
+        try:
+            with self.__get_connection().cursor() as cursor:
+                cursor.execute(query, (object_id,))
+                self.__get_connection().commit()
+                logger.info(f"Registro com ID {object_id} deletado com sucesso.")
+        except psycopg.Error as e:
+            logger.error(f"Erro ao deletar registro com ID {object_id}: {e}")
+            raise
+
+    def read(self, model_class, object_id):
+        """Busca um objeto pelo ID no banco de dados."""
+        query = sql.SQL(""" 
+            SELECT * FROM {table} WHERE id = %s;
+        """).format(
+            table=sql.Identifier(model_class._table_name)
+        )
+        try:
+            with self.__get_connection().cursor() as cursor:
+                cursor.execute(query, [object_id])
+                row = cursor.fetchone()
+                if row:
+                    columns = [desc[0] for desc in cursor.description]
+                    return Util._row_to_object(model_class, row, columns)
+                return None
+        except psycopg.Error as e:
+            logger.error(f"Erro ao buscar {model_class.__name__} com ID {object_id}: {e}")
+            raise
+
+    def find_all(self, model_class) -> List[Any]:
         """Executa uma consulta SQL personalizada."""
+        query = sql.SQL(""" 
+            SELECT * FROM {table} ORDER BY id;
+        """).format(
+            table=sql.Identifier(model_class._table_name)
+        )
+        try:
+            with self.__get_connection().cursor() as cursor:
+                cursor.execute(query)
+                columns = [desc[0] for desc in cursor.description]
+                rows = cursor.fetchall()
+
+                objects = [Util._row_to_object(model_class, row, columns) for row in rows]
+
+                if len(objects) == 1:
+                    return objects[0]  # Retorna o objeto diretamente
+                return objects  # Retorna a lista de objetos
+        except psycopg.Error as e:
+            logger.error(f"Erro ao executar a consulta: {e}")
+            raise
+
+    def execute_sql(self, query: str, params: List[Any]) -> List[Any]:
         try:
             with self.__get_connection().cursor() as cursor:
                 cursor.execute(query, params)
@@ -46,141 +206,278 @@ class Query(metaclass=Singleton):
             logger.error(f"Erro ao executar a consulta: {e}")
             raise
 
-    def execute(self, base_model, **filters) -> List[Any]:
-        """
-        Executa uma consulta no banco de dados com base nos filtros fornecidos, inferindo automaticamente
-        os joins necessários a partir das relações definidas no modelo. Suporta ORDER BY e GROUP BY.
-
-        Parâmetros:
-            base_model: Classe do modelo base para a consulta
-            filters: Filtros podendo incluir condições WHERE, ORDER BY e GROUP BY
-
-        Retorno:
-            List[Any]: Lista de objetos do domínio
-        """
+    def execute(self, base_model, **kwargs) -> List[Any]:
         try:
-            # Construção da query base
+            # Extrai parâmetros especiais
+            where_filters = kwargs.pop('where', {})
+            having_filters = kwargs.pop('having', {})
+            order_by = kwargs.pop('order_by', None)
+            group_by = kwargs.pop('group_by', None)
+            select_fields = kwargs.pop('select', None)
+
+            # 1. Construção do SELECT
             base_table = sql.Identifier(base_model._table_name)
-            base_query = sql.SQL("SELECT {base_table}.* FROM {base_table}").format(
-                base_table=base_table
-            )
 
-            # Geração automática de JOINS
-            join_clauses = []
-            relationships = getattr(base_model, "_relationships", [])
-            joined_tables = {base_model._table_name: True}  # Tabelas já incluídas
+            if select_fields:
+                select_items = []
+                for field in select_fields:
+                    # Caso de expressão com alias (ex: COUNT(*) AS total)
+                    if ' AS ' in field.upper():
+                        # Usa SQL diretamente, pois já está formatado corretamente
+                        select_items.append(sql.SQL(field))
+                    elif '(' in field:
+                        # Expressão sem alias explícito
+                        select_items.append(sql.SQL(field))
+                    else:
+                        # Campo simples
+                        select_items.append(sql.Identifier(field))
+                select_clause = sql.SQL(', ').join(select_items)
+            else:
+                select_clause = sql.SQL('*')
 
-            for rel in relationships:
-                ref_table = rel["ref_table"]
-                base_column = rel["field_name"]
-                ref_field = rel.get("ref_field", "id")
+            # 2. Geração automática de JOINS
+            join_clauses = Util._generate_joins(base_model, base_table)
 
-                if ref_table not in joined_tables:
-                    join_clause = sql.SQL(" JOIN {ref_table} ON {base_table}.{base_column} = {ref_table}.{ref_field}").format(
-                        ref_table=sql.Identifier(ref_table),
-                        base_table=base_table,
-                        base_column=sql.Identifier(base_column),
-                        ref_field=sql.Identifier(ref_field)
-                    )
-                    join_clauses.append(join_clause)
-                    joined_tables[ref_table] = True
-
-            # Processamento dos filtros
-            order_by = filters.pop('order_by', None)
-            group_by = filters.pop('group_by', None)
-
-            filter_clauses = []
+            # 3. Processamento WHERE
+            where_clauses = []
             filter_values = []
-            for column, value in filters.items():
-                # Nova lógica corrigida para identificação de tabela/coluna
-                if "." in column:
-                    table, column_name = column.split(".", 1)
+            for key, value in where_filters.items():
+                if "__" in key:
+                    field, operator = key.split("__", 1)
+                    operator = operator.lower()
                 else:
-                    table = base_model._table_name
-                    column_name = column
+                    field, operator = key, "eq"
 
-                filter_clauses.append(
-                    sql.SQL("{table}.{column} = %s").format(
+                # Mapeia operadores
+                sql_operator = {
+                    "eq": "=", "like": "LIKE", "ilike": "ILIKE",
+                    "gt": ">", "lt": "<", "gte": ">=", "lte": "<="
+                }.get(operator, "=")
+
+                # Adiciona wildcards para operadores de texto
+                if operator in ("like", "ilike") and "%" not in str(value):
+                    value = f"%{value}%"
+
+                # Resolve referência da coluna
+                table, column = Util._parse_column_reference(base_model, field)
+                if table:  # Se não for expressão SQL
+                    col_ref = sql.SQL("{table}.{col}").format(
                         table=sql.Identifier(table),
-                        column=sql.Identifier(column_name)
+                        col=sql.Identifier(column)
                     )
-                )
+                else:
+                    col_ref = sql.SQL(column)
+
+                # Constrói cláusula WHERE
+                where_clauses.append(sql.SQL("{col} {op} %s").format(col=col_ref, op=sql.SQL(sql_operator)))
                 filter_values.append(value)
 
-            # Construção das cláusulas
-            where_clause = sql.SQL(" WHERE ") + sql.SQL(" AND ").join(filter_clauses) if filter_clauses else sql.SQL("")
+            where_clause = sql.SQL(" WHERE ") + sql.SQL(" AND ").join(where_clauses) if where_clauses else sql.SQL("")
 
-            # GROUP BY
-            group_by_sql = sql.SQL("")
-            if group_by:
-                group_columns = [group_by] if isinstance(group_by, str) else group_by
-                group_clauses = []
-                for col in group_columns:
-                    if "." in col:
-                        table, column = col.split(".", 1)
-                        group_clauses.append(sql.SQL("{table}.{column}").format(
-                            table=sql.Identifier(table),
-                            column=sql.Identifier(column)
-                        ))
-                    else:
-                        group_clauses.append(sql.SQL("{table}.{column}").format(
-                            table=base_table,
-                            column=sql.Identifier(col)
-                        ))
-                group_by_sql = sql.SQL(" GROUP BY ") + sql.SQL(", ").join(group_clauses)
+            # 4. Processamento HAVING - Usando o novo método
+            having_clause, having_values = Util._build_having(having_filters, select_fields)
 
-            # ORDER BY
-            order_by_sql = sql.SQL("")
-            if order_by:
-                order_columns = [order_by] if isinstance(order_by, str) else order_by
-                order_clauses = []
-                for col in order_columns:
-                    parts = col.strip().split()
-                    column_part = parts[0]
-                    direction = parts[1].upper() if len(parts) > 1 and parts[1].upper() in ('ASC', 'DESC') else ''
+            # 5. Cláusulas GROUP BY e ORDER BY
+            group_by_clause = Util._build_group_by(group_by)
+            order_by_clause = Util._build_order_by(order_by)
 
-                    if "." in column_part:
-                        table, column = column_part.split(".", 1)
-                        clause = sql.SQL("{table}.{column}").format(
-                            table=sql.Identifier(table),
-                            column=sql.Identifier(column)
-                        )
-                    else:
-                        clause = sql.SQL("{table}.{column}").format(
-                            table=base_table,
-                            column=sql.Identifier(column_part)
-                        )
-
-                    if direction:
-                        clause += sql.SQL(f" {direction}")
-
-                    order_clauses.append(clause)
-
-                order_by_sql = sql.SQL(" ORDER BY ") + sql.SQL(", ").join(order_clauses)
-
-            # Query final
-            full_query = (
-                    base_query +
-                    sql.SQL(" ").join(join_clauses) +
-                    where_clause +
-                    group_by_sql +
-                    order_by_sql
+            # Montagem final da query
+            query = sql.SQL("""
+                SELECT {select} 
+                FROM {base_table}
+                {joins}
+                {where}
+                {group_by}
+                {having}
+                {order_by}
+            """).format(
+                select=select_clause,
+                base_table=base_table,
+                joins=sql.SQL(' ').join(join_clauses) if join_clauses else sql.SQL(''),
+                where=where_clause,
+                group_by=group_by_clause,
+                having=having_clause,
+                order_by=order_by_clause
             )
 
-            # Execução
+            # 6. Execução e retorno
+            filter_values.extend(having_values)  # Combina os valores de WHERE e HAVING
+
             with self.__get_connection().cursor() as cursor:
-                cursor.execute(full_query, filter_values)
+                cursor.execute(query, filter_values)
                 rows = cursor.fetchall()
                 columns = [desc[0] for desc in cursor.description]
 
-                # Converte as linhas em objetos
-                objects = [Util._row_to_object(base_model, row, columns) for row in rows]
-
-                # Retorna o objeto diretamente se houver apenas um resultado
-                if len(objects) == 1:
-                    return objects[0]  # Retorna o objeto diretamente
-                return objects  # Retorna a lista de objetos
+            # Converte as linhas em objetos
+            if rows:
+                return [Util._row_to_object(base_model, row, columns) for row in rows]
+            return []
 
         except psycopg.Error as e:
-            logger.error(f"Erro ao executar a consulta: {e}")
+            # Captura a query que falhou para diagnóstico
+            query_str = query.as_string(self.__get_connection()) if locals().get("query") else "Query não gerada"
+            logger.error(f"Erro na consulta: {e}\nQuery: {query_str}")
             raise
+
+
+
+
+class QueryBuilder:
+    """Constrói consultas de forma intuitiva e orientada a objetos."""
+    def __init__(self, model_class):
+        self.model = model_class
+        self._filters = {}
+        self._order_by = []
+        self._group_by = []
+        self._select = []
+        self._joins = []
+        self._having = {}
+        self._aliases = {}
+
+    def filter(self, *args, **kwargs):
+        """Adiciona filtros à consulta (cláusula WHERE)."""
+        for condition in args:
+            if isinstance(condition, Q):
+                self._filters.update(condition.conditions)
+        self._filters.update(kwargs)
+        return self
+
+    def select(self, *fields):
+        """Seleciona campos específicos (colunas regulares, não agregações)."""
+        for field in fields:
+            self._select.append(field)
+        return self
+
+    def order_by(self, *fields):
+        """Define a ordenação dos resultados."""
+        self._order_by.extend(fields)
+        return self
+
+    def annotate(self, **aggregations):
+        """Adiciona agregações à consulta."""
+        for alias, aggregation in aggregations.items():
+            if isinstance(aggregation, Count):
+                field = aggregation.field
+                self._select.append(f"COUNT({field}) AS {alias}")
+                self._aliases[alias] = f"COUNT({field})"
+            elif isinstance(aggregation, Avg):
+                field = aggregation.field
+                self._select.append(f"AVG({field}) AS {alias}")
+                self._aliases[alias] = f"AVG({field})"
+            elif isinstance(aggregation, Sum):
+                field = aggregation.field
+                self._select.append(f"SUM({field}) AS {alias}")
+                self._aliases[alias] = f"SUM({field})"
+            elif isinstance(aggregation, Max):
+                field = aggregation.field
+                self._select.append(f"MAX({field}) AS {alias}")
+                self._aliases[alias] = f"MAX({field})"
+            elif isinstance(aggregation, Min):
+                field = aggregation.field
+                self._select.append(f"MIN({field}) AS {alias}")
+                self._aliases[alias] = f"MIN({field})"
+            else:
+                # Para referências diretas a colunas
+                self._select.append(f"{aggregation} AS {alias}")
+                self._aliases[alias] = str(aggregation)
+        return self
+
+    def group_by(self, *fields):
+        """Define o agrupamento dos resultados."""
+        self._group_by.extend(fields)
+        return self
+
+    def having(self, **filters):
+        """Adiciona filtros de agregação (HAVING)."""
+        self._having.update(filters)
+        return self
+
+    def join(self, related_model):
+        """Especifica um relacionamento para incluir na consulta."""
+        self._joins.append(related_model)
+        return self
+
+    def execute(self):
+        """Executa a consulta e retorna os resultados."""
+        # Converte os objetos para parâmetros do método execute
+        filters = {}
+        for field, value in self._filters.items():
+            if isinstance(field, F):
+                filters[field.field_name] = value
+            else:
+                filters[field] = value
+
+        # Converte ordenação
+        order = [f if isinstance(f, str) else f.field_name for f in self._order_by]
+
+        # Executa a consulta
+        return Query().execute(
+            self.model,
+            where=filters,
+            order_by=order,
+            group_by=self._group_by,
+            having=self._having,
+            select=self._select
+        )
+
+    def execute_sql(self, query: str, params: List[Any] = None) -> List[Any]:
+        """Executa uma consulta SQL no banco de dados com os parâmetros fornecidos."""
+        return Query().execute_sql(query, params or [])
+
+
+# Classes auxiliares
+class Sum:
+    """Representa uma agregação SUM."""
+    def __init__(self, field):
+        self.field = field
+
+class Max:
+    """Representa uma agregação MAX."""
+    def __init__(self, field):
+        self.field = field
+
+class Min:
+    """Representa uma agregação MIN."""
+    def __init__(self, field):
+        self.field = field
+
+class Count:
+    """Representa uma agregação COUNT."""
+    def __init__(self, field='*'):
+        self.field = field
+
+
+class Avg:
+    """Representa uma agregação AVG."""
+    def __init__(self, field):
+        self.field = field
+
+
+class Q:
+    """Representa condições de filtro complexas."""
+    def __init__(self, **kwargs):
+        self.conditions = kwargs
+
+    def __or__(self, other):
+        """Combina condições com OR."""
+        return Q(**{f"OR_{k}": v for k, v in {**self.conditions, **other.conditions}.items()})
+
+    def __and__(self, other):
+        """Combina condições com AND."""
+        return Q(**{f"AND_{k}": v for k, v in {**self.conditions, **other.conditions}.items()})
+
+
+class F:
+    """Representa referências a campos do modelo."""
+    def __init__(self, field_name):
+        self.field_name = field_name
+
+    def asc(self):
+        """Ordenação ascendente."""
+        return f"{self.field_name} ASC"
+
+    def desc(self):
+        """Ordenação descendente."""
+        return f"{self.field_name} DESC"
+
+

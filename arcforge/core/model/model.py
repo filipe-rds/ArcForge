@@ -1,11 +1,11 @@
-from typing import Dict, List, Any
+from typing import Dict
 from abc import ABC, abstractmethod
 
-from arcforge.core.model.field import *
-from arcforge.core.model.relationships import *
+from .field import Field
+from .relationships import Relationship, OneToOne
 
 
-class Model:
+class Model(ABC):
     _table_name: str = None
 
     @classmethod
@@ -107,6 +107,10 @@ class Model:
         incluindo os atributos privados e quaisquer atributos adicionais.
         """
         return {key: value for key, value in self.__dict__.items()}
+
+    @property
+    def table_name(self):
+        return self._table_name
 
 
 class ModelDTO(ABC):

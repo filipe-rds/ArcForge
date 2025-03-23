@@ -131,7 +131,7 @@ class ClienteController(Controller):
     def get_cliente(request: Request, id):
         """Retorna um cliente pelo ID"""
         cliente = dao_cliente.read(id)
-        if cliente:
+        if ValidatorReponse.reponse(cliente, Cliente):
             return Response(HttpStatus.OK, cliente)
         return Response(HttpStatus.NOT_FOUND, {"error": "Cliente não encontrado"})
 

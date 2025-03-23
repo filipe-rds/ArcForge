@@ -1,19 +1,13 @@
-from arcforge.core.model.model import *
-# from arcforge.core.conn.controller import *
-from colorama import Fore, Style, init
-import random
+from arcforge.core.model import *
 from arcforge.core.db import *
 from arcforge.core.conn import *
 from arcforge import template_engine
-
+from colorama import Fore, Style, init
+import random
 
 
 # Inicializa o colorama
 init(autoreset=True)
-
-# Inicializa a conexão com o banco
-dao = DAO()
-query = Query()
 
 # Modelo Cliente
 @Model.Table("tb_cliente")
@@ -29,6 +23,15 @@ class Pedido(Model):
     descricao = CharField(max_length=200)
     cliente = ManyToOne(Cliente, on_delete="CASCADE")
 
+# Daos
+class DaoPedido(DAO):
+    _model = Pedido
+
+class DaoCliente(DAO):
+    _model = Cliente
+
+dao_cliente = DaoCliente()
+dao_pedido = DaoPedido()
 
 class ClienteListDTO(ModelDTO):
     def __init__(self, cliente):
@@ -58,10 +61,6 @@ class PedidoListDTO(ModelDTO):
 
 # Configuração do banco e inserção de dados
 def setup_database():
-    # Cria as tabelas
-    dao.create_table(Cliente)
-    dao.create_table(Pedido)
-
     # Inserindo vários clientes
     clientes_data = [
         {"nome": "João Silva", "email": "joao@email.com"},
@@ -77,7 +76,7 @@ def setup_database():
     ]
     clientes = []
     for data in clientes_data:
-        cliente = dao.save(Cliente(**data))
+        cliente = dao_cliente.save(Cliente(**data))
         clientes.append(cliente)
         print(f"{Fore.GREEN}Cliente inserido: {Style.BRIGHT}{cliente}")
 
@@ -100,13 +99,13 @@ def setup_database():
         for _ in range(2):
             produto = random.choice(produtos)
             descricao = f"Compra de {produto} para {cliente.nome}"
-            pedido = dao.save(Pedido(descricao=descricao, cliente=cliente))
+            pedido = dao_pedido.save(Pedido(descricao=descricao, cliente=cliente))
             print(f"{Fore.GREEN}Pedido inserido: {Style.BRIGHT}{pedido}")
 
 # Função para excluir todas as tabelas (importante excluir primeiro a tabela com relacionamentos)
 def delete_all():
-    dao.delete_table(Pedido)
-    dao.delete_table(Cliente)
+    dao_pedido.delete_table()
+    dao_cliente.delete_table()
     print(f"{Fore.RED}Todas as tabelas foram excluídas.")
 
 
@@ -115,7 +114,7 @@ class ClienteController(Controller):
     @Router.route("/clientes", "GET")
     def get_clientes(request: Request):
         """Retorna todos os clientes cadastrados em um template HTML"""
-        clientes = dao.find_all(Cliente)
+        clientes = dao_cliente.find_all()
         if clientes:
             rendered_html = template_engine.render_template("clientes.html", clientes=clientes)
             return HtmlResponse(HttpStatus.OK, rendered_html)
@@ -140,7 +139,9 @@ class AuthController(Controller):
         if not nome or not email:
             return HtmlResponse(HttpStatus.BAD_REQUEST, "<h1>Nome e email são obrigatórios!</h1>")
 
-        usuario = query.execute(Cliente, nome=nome, email=email)
+        usuario = QueryBuilder(Cliente).filter(nome=nome, email=email).execute()
+
+        logging.info(f"Cliente login: {usuario}")
         
 
         if not usuario:

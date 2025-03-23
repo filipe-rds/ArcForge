@@ -206,7 +206,7 @@ class Query:
             logger.error(f"Erro ao executar a consulta: {e}")
             raise
 
-    def execute(self, base_model, **kwargs) -> List[Any]:
+    def execute(self, base_model, **kwargs) -> Any:
         try:
             # Extrai parâmetros especiais
             where_filters = kwargs.pop('where', {})
@@ -214,6 +214,7 @@ class Query:
             order_by = kwargs.pop('order_by', None)
             group_by = kwargs.pop('group_by', None)
             select_fields = kwargs.pop('select', None)
+            single_result = kwargs.pop('single_result', False)  # Novo parâmetro para indicar retorno de resultado único
 
             # 1. Construção do SELECT
             base_table = sql.Identifier(base_model._table_name)
@@ -309,16 +310,22 @@ class Query:
                 columns = [desc[0] for desc in cursor.description]
 
             # Converte as linhas em objetos
-            if rows:
-                return [Util._row_to_object(base_model, row, columns) for row in rows]
-            return []
+            if not rows:
+                return None
+
+            result = [Util._row_to_object(base_model, row, columns) for row in rows]
+
+            # Retorna um único objeto se single_result for True ou se houver apenas um resultado
+            if single_result or len(result) == 1:
+                return result[0] if result else None
+
+            return result
 
         except psycopg.Error as e:
             # Captura a query que falhou para diagnóstico
             query_str = query.as_string(self.__get_connection()) if locals().get("query") else "Query não gerada"
             logger.error(f"Erro na consulta: {e}\nQuery: {query_str}")
             raise
-
 
 
 

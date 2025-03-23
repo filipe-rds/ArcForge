@@ -1,17 +1,13 @@
-from arcforge.core.model.model import *
-# from arcforge.core.conn.controller import *
-from colorama import Fore, Style, init
-import random
+from arcforge.core.model import *
 from arcforge.core.db import *
 from arcforge.core.conn import *
-#
+from colorama import Fore, Style, init
+import random
+
 
 # Inicializa o colorama
 init(autoreset=True)
 
-# Inicializa a conexão com o banco
-dao = DAO()
-query = Query()
 
 # Modelo Cliente
 @Model.Table("tb_cliente")
@@ -27,7 +23,19 @@ class Pedido(Model):
     descricao = CharField(max_length=200)
     cliente = ManyToOne(Cliente, on_delete="CASCADE")
 
+# Daos
+class DaoPedido(DAO):
+    _model = Pedido
 
+class DaoCliente(DAO):
+    _model = Cliente
+
+
+dao_cliente = DaoCliente()
+dao_pedido = DaoPedido()
+
+
+# DTO
 class ClienteListDTO(ModelDTO):
     def __init__(self, cliente):
         self.id = cliente.id
@@ -56,9 +64,6 @@ class PedidoListDTO(ModelDTO):
 
 # Configuração do banco e inserção de dados
 def setup_database():
-    # Cria as tabelas
-    dao.create_table(Cliente)
-    dao.create_table(Pedido)
 
     # Inserindo vários clientes
     clientes_data = [
@@ -75,7 +80,7 @@ def setup_database():
     ]
     clientes = []
     for data in clientes_data:
-        cliente = dao.save(Cliente(**data))
+        cliente = dao_cliente.save(Cliente(**data))
         clientes.append(cliente)
         print(f"{Fore.GREEN}Cliente inserido: {Style.BRIGHT}{cliente}")
 
@@ -98,13 +103,14 @@ def setup_database():
         for _ in range(2):
             produto = random.choice(produtos)
             descricao = f"Compra de {produto} para {cliente.nome}"
-            pedido = dao.save(Pedido(descricao=descricao, cliente=cliente))
+            pedido = dao_pedido.save(Pedido(descricao=descricao, cliente=cliente))
             print(f"{Fore.GREEN}Pedido inserido: {Style.BRIGHT}{pedido}")
 
 # Função para excluir todas as tabelas (importante excluir primeiro a tabela com relacionamentos)
 def delete_all():
-    dao.delete_table(Pedido)
-    dao.delete_table(Cliente)
+    dao_cliente.delete_table()
+    dao_pedido.delete_table()
+
     print(f"{Fore.RED}Todas as tabelas foram excluídas.")
 
 # Controlador para Cliente
@@ -114,7 +120,7 @@ class ClienteController(Controller):
     @Router.route("/clientes", "GET")
     def get_clientes(request: Request):
         """Retorna todos os clientes cadastrados"""
-        clientes = dao.find_all(Cliente)
+        clientes = dao_cliente.find_all()
         if clientes:
             serialized_clientes = [ClienteListDTO(cliente).to_dict() for cliente in clientes]
             return Response(HttpStatus.OK, serialized_clientes)
@@ -124,7 +130,7 @@ class ClienteController(Controller):
     @Validator(id=int)
     def get_cliente(request: Request, id):
         """Retorna um cliente pelo ID"""
-        cliente = dao.read(Cliente, id)
+        cliente = dao_cliente.read(id)
         if cliente:
             return Response(HttpStatus.OK, cliente)
         return Response(HttpStatus.NOT_FOUND, {"error": "Cliente não encontrado"})
@@ -136,7 +142,7 @@ class ClienteController(Controller):
         print('PRINT DO REQUEST.BODY')
         novo_cliente_data = request.body  # O body agora está dentro da instância de Request
         cliente = Cliente(**novo_cliente_data)
-        dao.save(cliente)
+        dao_cliente.save(cliente)
         print(f"{Fore.GREEN}Cliente inserido via API: {Style.BRIGHT}{cliente}")
         return Response(HttpStatus.CREATED, cliente)
     
@@ -144,7 +150,7 @@ class ClienteController(Controller):
 class PedidoController(Controller):
     @Router.route("/pedidos", "GET")
     def get_pedidos(request: Request):
-        pedidos = dao.find_all(Pedido)
+        pedidos = dao_pedido.find_all()
         if pedidos:
             serialized_pedidos = [PedidoListDTO(pedido).to_dict() for pedido in pedidos]
             return Response(HttpStatus.OK, serialized_pedidos)
@@ -152,18 +158,18 @@ class PedidoController(Controller):
 
     @Router.route("/pedidos/{id}", "GET")
     def get_pedido(request: Request, id):
-        pedido = dao.read(Pedido, id)
+        pedido = dao_pedido.read(id)
         if pedido:
             return Response(HttpStatus.OK, pedido)
         return Response(HttpStatus.NOT_FOUND, {"error": "Pedido não encontrado"})
 
     @Router.route("/pedidos", "POST")
     def create_pedido(request: Request):
-        cliente = dao.read(Cliente, request.body.get("cliente_id"))
+        cliente = dao_cliente.read(request.body.get("cliente_id"))
         if not cliente:
             return Response(HttpStatus.NOT_FOUND, {"error": "Cliente não encontrado para o pedido"})
         pedido = Pedido(descricao= request.body.get("descricao"), cliente=cliente)
-        dao.save(pedido)
+        dao_pedido.save(pedido)
         print(f"{Fore.GREEN}Pedido inserido via API: {Style.BRIGHT}{pedido}")
         return Response(HttpStatus.CREATED, pedido)
 
@@ -175,8 +181,9 @@ class AuthController(Controller):
         email = request.body.get("email")
         if not email:
             return Response(HttpStatus.BAD_REQUEST, {"error": "O campo 'email' é obrigatório"})
-        
-        cliente = query.execute(Cliente, order_by="id", email=email)
+
+        cliente = QueryBuilder(Cliente).filter(email=email).order_by("id").execute()
+
         if not cliente:
             return Response(HttpStatus.UNAUTHORIZED, {"error": "E-mail não encontrado"})
         

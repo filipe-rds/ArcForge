@@ -4,6 +4,7 @@ from colorama import Fore, Style, init
 import random
 from arcforge.core.db import *
 from arcforge.core.conn import *
+#
 
 # Inicializa o colorama
 init(autoreset=True)
@@ -109,6 +110,7 @@ def delete_all():
 # Controlador para Cliente
 class ClienteController(Controller):
     
+   
     @Router.route("/clientes", "GET")
     def get_clientes(request: Request):
         """Retorna todos os clientes cadastrados"""
@@ -119,6 +121,7 @@ class ClienteController(Controller):
         return Response(HttpStatus.NOT_FOUND, {"error": "Nenhum cliente encontrado"})
 
     @Router.route("/clientes/{id}", "GET")
+    @Validator(id=int)
     def get_cliente(request: Request, id):
         """Retorna um cliente pelo ID"""
         cliente = dao.read(Cliente, id)
@@ -128,7 +131,9 @@ class ClienteController(Controller):
 
     @Router.route("/clientes", "POST")
     def create_cliente(request: Request):
+        print(request.body)
         """Cria um novo cliente com os dados fornecidos no corpo da requisição"""
+        print('PRINT DO REQUEST.BODY')
         novo_cliente_data = request.body  # O body agora está dentro da instância de Request
         cliente = Cliente(**novo_cliente_data)
         dao.save(cliente)

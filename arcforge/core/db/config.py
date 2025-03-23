@@ -14,4 +14,4 @@ DB_PORT = os.getenv("DB_PORT", "5432")  # Valor padrão de porta 5432
 
 # Validar se todas as variáveis de ambiente estão definidas
 if not all([DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT]):
-    raise Exception("Parâmetros de conexão não estão definidos no arquivo .env")
+    raise Exception("Parâmetros de conexão [DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT] não estão definidos no arquivo .env")

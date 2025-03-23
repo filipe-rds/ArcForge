@@ -2,7 +2,8 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Type, Union
 
-from arcforge.core.db import DAO
+from arcforge.core.db.query import Query
+
 
 class OnDeleteAction(str, Enum):
     CASCADE = "CASCADE"
@@ -10,7 +11,6 @@ class OnDeleteAction(str, Enum):
     SET_NULL = "SET NULL"
     NO_ACTION = "NO ACTION"
     SET_DEFAULT = "SET DEFAULT"
-
 
 # -----------------------------------------------------------------------------
 # Padrão de Projeto: Template Method
@@ -83,9 +83,9 @@ class ManyToOne(Relationship):
         if fk_value is None:
             return None
 
-        # Obtém a instância única do DAO e utiliza o método read para buscar o objeto
-        dao = DAO()
-        related_obj = dao.read(self.related_class, fk_value)
+        # Obtém a instância do Query e utiliza o método read para buscar o objeto
+        query = Query()
+        related_obj = query.read(self.related_class, fk_value)
         # Armazena o objeto carregado para evitar nova consulta
         instance.__dict__[self.attr_name] = related_obj
         return related_obj
@@ -148,6 +148,3 @@ class ManyToMany(Relationship):
 
     def to_sql(self) -> str:
         raise NotImplementedError("ManyToMany requer tratamento especial na migração.")
-
-
-__all__ = ["OnDeleteAction", "Relationship", "ManyToOne", "OneToOne", "ManyToMany"]

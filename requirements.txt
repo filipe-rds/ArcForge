@@ -1,2 +1,5 @@
 python-dotenv
-psycopg2
+psycopg[binary]
+colorama
+Jinja2
+setuptools

@@ -1,165 +1,123 @@
-import psycopg2
-from psycopg2 import sql
-from arcforge.core.db.config import *
-from arcforge.core.model.field import *
-from arcforge.core.model.relationshipStrategy import *
-from arcforge.core.model.relationships import *
+from typing import Dict
+from abc import ABC, abstractmethod
 
-# class ForeignKey:
-#     """Representa uma chave estrangeira."""
-
-#     def __init__(self, related_class, on_delete="CASCADE"):
-#         self.related_class = related_class
-#         self.on_delete = on_delete
-
-#     def to_sql(self, related_table_name):
-#         return f"INTEGER REFERENCES {related_table_name}(id) ON DELETE {self.on_delete}"
+from .field import Field
+from .relationships import Relationship, OneToOne
 
 
-class Model:
-    """Classe base para modelos."""
-    _table_name = None
-    _relationships = {}
-    
+class Model(ABC):
+    _table_name: str = None
+
+    @classmethod
+    def Table(cls, table_name: str):
+        """Decorator para definir o nome da tabela da classe."""
+        def wrapper(subclass):
+            subclass._table_name = table_name
+            return subclass
+        return wrapper
+
+    def __init_subclass__(cls, **kwargs):
+        # Template Method: Inicialização das subclasses para garantir que cada uma possua sua própria lista de relacionamentos.
+        super().__init_subclass__(**kwargs)
+        if cls._table_name is None:
+            # Usa o nome da classe em minúsculo por convenção (opcional)
+            cls._table_name = cls.__name__.lower()  # Ou apenas cls.__name__
+        cls._relationships = []  # Cada subclasse terá sua própria lista de relacionamentos
+
+
     def __init__(self, **kwargs):
+        self._validate_fields(kwargs)
+        self._process_relationships(kwargs)
         for field, value in kwargs.items():
             setattr(self, field, value)
 
-    # Método para gerar os campos da tabela
+    def _process_relationships(self, kwargs: Dict) -> None:
+        """ Processa objetos passados em relacionamentos. """
+        # Itera sobre uma cópia dos itens para evitar modificar o dicionário durante a iteração
+        for attr_name, value in list(kwargs.items()):
+            if attr_name in self.__class__.__dict__:
+                field = self.__class__.__dict__[attr_name]
+                if isinstance(field, Relationship):
+                    # Se o valor for um objeto, extrai o ID
+                    if hasattr(value, 'id'):
+                        setattr(self, f"{attr_name}_id", value.id)
+                        del kwargs[attr_name]
+
     @classmethod
-    def _generate_fields(cls):
+    def _validate_fields(cls, kwargs: Dict) -> None:
+        """ Valida se os campos fornecidos existem na classe. """
+        for field in kwargs:
+            if not hasattr(cls, field):
+                raise AttributeError(f"Campo '{field}' não existe no modelo {cls.__name__}")
+
+    @classmethod
+    def _generate_fields(cls) -> str:
+        """ Gera a definição SQL dos campos e relacionamentos. """
         fields = []
-        
-        # Para cada atributo da classe (campos e relacionamentos)
-        for attr, field in cls.__dict__.items():
-            # Verifica se é um campo
+        for attr_name, field in cls.__dict__.items():
             if isinstance(field, Field):
-                fields.append(f"{attr} {field.to_sql()}")
-            
-            # Verifica se é um relacionamento
-            elif isinstance(field, RelationshipBase):
-                # Chama o to_sql para gerar o relacionamento
-                fields.append(f"{attr} {field.to_sql()}")
-        print(fields)
+                fields.append(f"{attr_name} {field.to_sql()}")
+                cls._process_field_relationships(attr_name, field)
+            elif isinstance(field, Relationship):
+                fields.append(f"{attr_name}_id {field.to_sql()}")
+                cls._store_relationship_metadata(attr_name, field)
         return ", ".join(fields)
 
+
+    @classmethod
+    def _process_field_relationships(cls, attr_name: str, field: Field) -> None:
+        """ Processa metadados de campos que são relacionamentos. """
+        if field.foreign_key:
+            cls._relationships.append({
+                "field_name": attr_name,
+                "ref_table": field.foreign_key[0],
+                "ref_field": field.foreign_key[1],
+                "unique": field.unique
+            })
+
+    @classmethod
+    def _store_relationship_metadata(cls, attr_name: str, relationship: Relationship) -> None:
+        """ Armazena metadados de relacionamentos, garantindo a inclusão da classe do modelo relacionado. """
+        cls._relationships.append({
+            "attr_name": attr_name,  # Nome do atributo no modelo
+            "field_name": f"{attr_name}_id",
+            "ref_table": relationship.ref_table,
+            "ref_field": getattr(relationship, 'ref_column', 'id'),
+            "model_class": relationship.related_class,  # Garante que temos a classe do modelo relacionado
+            "unique": isinstance(relationship, OneToOne),
+        })
+
+
+
+
+    def __str__(self) -> str:
+        return self._repr()
+
+    def __repr__(self) -> str:
+        return self._repr()
+
+    def _repr(self) -> str:
+        """Representação única para __str__ e __repr__."""
+        attrs = ", ".join(f"{k}={v}" for k, v in vars(self).items())
+        return f"{self.__class__.__name__}({attrs})"
     
+    def to_dict(self):
+        """
+        Converte o objeto atual em um dicionário, pegando todos os atributos da instância,
+        incluindo os atributos privados e quaisquer atributos adicionais.
+        """
+        return {key: value for key, value in self.__dict__.items()}
+
+    @property
+    def table_name(self):
+        return self._table_name
 
 
+class ModelDTO(ABC):
+    """Interface base para todos os DTOs."""
 
-    # @classmethod
-    # def _create_relationships(cls):
-    #     """Cria tabelas para relacionamentos Many-to-Many."""
-    #     for related_table, config in cls._relationships.items():
-    #         if config["type"] == "ManyToMany":
-    #             join_table = f"{cls._table_name}_{related_table}"
-    #             try:
-    #                 create_table_query = sql.SQL("""
-    #                     CREATE TABLE IF NOT EXISTS {join_table} (
-    #                         {left_table}_id INTEGER REFERENCES {left_table}(id),
-    #                         {right_table}_id INTEGER REFERENCES {right_table}(id),
-    #                         PRIMARY KEY ({left_table}_id, {right_table}_id)
-    #                     );
-    #                 """).format(
-    #                     join_table=sql.Identifier(join_table),
-    #                     left_table=sql.Identifier(cls._table_name),
-    #                     right_table=sql.Identifier(related_table),
-    #                 )
-    #                 with cls._conexao.cursor() as cursor:
-    #                     cursor.execute(create_table_query)
-    #                     cls._conexao.commit()
-    #             except psycopg2.Error as e:
-    #                 raise RuntimeError(
-    #                     f"Erro ao criar relacionamento Many-to-Many com '{related_table}'.") from e
+    @abstractmethod
+    def to_dict(self) -> dict:
+        """Converte o DTO em um dicionário."""
+        pass
 
-    # Método para salvar os dados
-
-
-    # @classmethod
-    # def add_relationship(cls, related_class, rel_type):
-    #     """Adiciona configuração de relacionamento."""
-    #     cls._relationships[related_class._table_name] = {
-    #         "related_class": related_class, "type": rel_type}
-
-    # @classmethod
-    # def filter(cls, **conditions):
-    #     """Filtra os registros com base nas condições fornecidas."""
-    #     cls.set_conexao()
-    #     where_clauses = []
-    #     values = []
-
-    #     for field, value in conditions.items():
-    #         if hasattr(cls, field):
-    #             where_clauses.append(f"{field} = %s")
-    #             values.append(value)
-
-    #     if not where_clauses:
-    #         raise ValueError("Nenhuma condição foi fornecida para o filtro.")
-
-    #     where_clause = " AND ".join(where_clauses)
-
-    #     query = sql.SQL("""
-    #         SELECT * FROM {table}
-    #         WHERE {where_clause}
-    #     """).format(
-    #         table=sql.Identifier(cls._table_name),
-    #         where_clause=sql.SQL(where_clause)
-    #     )
-
-    #     try:
-    #         with cls._conexao.cursor() as cursor:
-    #             cursor.execute(query, values)
-    #             result = cursor.fetchall()
-    #             return result  # Retorna os registros filtrados
-    #     except psycopg2.Error as e:
-    #         print(e)
-    #         raise RuntimeError(f"Erro ao realizar o filtro na tabela '{cls._table_name}'.") from e
-
-
-# Decorators para Relacionamentos
-
-# def OneToOne(related_class, on_delete="CASCADE"):
-#     """Define um relacionamento One-to-One."""
-#     def decorator(cls):
-#         cls._relationships[related_class._table_name] = {
-#             "type": "OneToOne",
-#             "related_class": related_class,
-#             "on_delete": on_delete,
-#         }
-#         setattr(cls, f"{related_class._table_name}_id",
-#                 ForeignKey(related_class, on_delete))
-#         return cls
-#     return decorator
-
-
-# def ManyToOne(related_class, on_delete="CASCADE"):
-#     """Define um relacionamento Many-to-One."""
-#     def decorator(cls):
-#         cls._relationships[related_class._table_name] = {
-#             "type": "ManyToOne",
-#             "related_class": related_class,
-#             "on_delete": on_delete,
-#         }
-#         setattr(cls, f"{related_class._table_name}_id",
-#                 ForeignKey(related_class, on_delete))
-#         return cls
-#     return decorator
-
-
-# def OneToMany(related_class):
-#     """Define um relacionamento One-to-Many."""
-#     def decorator(cls):
-#         cls._relationships[related_class._table_name] = {
-#             "type": "OneToMany",
-#             "related_class": related_class,
-#         }
-#         return cls
-#     return decorator
-
-
-# def ManyToMany(related_class):
-#     """Define um relacionamento Many-to-Many."""
-#     def decorator(cls):
-#         cls.add_relationship(related_class, "ManyToMany")
-#         return cls
-#     return decorator

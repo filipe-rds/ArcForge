@@ -4,7 +4,9 @@ from colorama import Fore, Style, init
 import random
 from arcforge.core.db import *
 from arcforge.core.conn import *
-#
+from arcforge import template_engine
+
+
 
 # Inicializa o colorama
 init(autoreset=True)
@@ -107,117 +109,69 @@ def delete_all():
     dao.delete_table(Cliente)
     print(f"{Fore.RED}Todas as tabelas foram excluídas.")
 
-# Controlador para Cliente
+
 class ClienteController(Controller):
-    
-   
+
     @Router.route("/clientes", "GET")
     def get_clientes(request: Request):
-        """Retorna todos os clientes cadastrados"""
+        """Retorna todos os clientes cadastrados em um template HTML"""
         clientes = dao.find_all(Cliente)
         if clientes:
-            serialized_clientes = [ClienteListDTO(cliente).to_dict() for cliente in clientes]
-            return Response(HttpStatus.OK, serialized_clientes)
-        return Response(HttpStatus.NOT_FOUND, {"error": "Nenhum cliente encontrado"})
+            rendered_html = template_engine.render_template("clientes.html", clientes=clientes)
+            return HtmlResponse(HttpStatus.OK, rendered_html)
 
-    @Router.route("/clientes/{id}", "GET")
-    @Validator(id=int)
-    def get_cliente(request: Request, id):
-        """Retorna um cliente pelo ID"""
-        cliente = dao.read(Cliente, id)
-        if cliente:
-            return Response(HttpStatus.OK, cliente)
-        return Response(HttpStatus.NOT_FOUND, {"error": "Cliente não encontrado"})
+        return HtmlResponse(HttpStatus.NOT_FOUND, "<h1>Nenhum cliente encontrado</h1>")
 
-    @Router.route("/clientes", "POST")
-    def create_cliente(request: Request):
-        print(request.body)
-        """Cria um novo cliente com os dados fornecidos no corpo da requisição"""
-        print('PRINT DO REQUEST.BODY')
-        novo_cliente_data = request.body  # O body agora está dentro da instância de Request
-        cliente = Cliente(**novo_cliente_data)
-        dao.save(cliente)
-        print(f"{Fore.GREEN}Cliente inserido via API: {Style.BRIGHT}{cliente}")
-        return Response(HttpStatus.CREATED, cliente)
-    
-# Controlador para Pedido
-class PedidoController(Controller):
-    @Router.route("/pedidos", "GET")
-    def get_pedidos(request: Request):
-        pedidos = dao.find_all(Pedido)
-        if pedidos:
-            serialized_pedidos = [PedidoListDTO(pedido).to_dict() for pedido in pedidos]
-            return Response(HttpStatus.OK, serialized_pedidos)
-        return Response(HttpStatus.NOT_FOUND, {"error": "Nenhum pedido encontrado"})
-
-    @Router.route("/pedidos/{id}", "GET")
-    def get_pedido(request: Request, id):
-        pedido = dao.read(Pedido, id)
-        if pedido:
-            return Response(HttpStatus.OK, pedido)
-        return Response(HttpStatus.NOT_FOUND, {"error": "Pedido não encontrado"})
-
-    @Router.route("/pedidos", "POST")
-    def create_pedido(request: Request):
-        cliente = dao.read(Cliente, request.body.get("cliente_id"))
-        if not cliente:
-            return Response(HttpStatus.NOT_FOUND, {"error": "Cliente não encontrado para o pedido"})
-        pedido = Pedido(descricao= request.body.get("descricao"), cliente=cliente)
-        dao.save(pedido)
-        print(f"{Fore.GREEN}Pedido inserido via API: {Style.BRIGHT}{pedido}")
-        return Response(HttpStatus.CREATED, pedido)
-
-    
 class AuthController(Controller):
+    @Router.route("/login", "GET")
+    def login_page(request: Request):
+        """Retorna a página de login."""
+        return HtmlResponse(HttpStatus.OK, template_engine.render_template("login.html"))
+
     @Router.route("/login", "POST")
     def login(request: Request):
-        """Realiza o login do cliente e armazena na sessão"""
-        email = request.body.get("email")
-        if not email:
-            return Response(HttpStatus.BAD_REQUEST, {"error": "O campo 'email' é obrigatório"})
+        """Processa o login e armazena na sessão."""
         
-        cliente = query.execute(Cliente, order_by="id", email=email)
-        if not cliente:
-            return Response(HttpStatus.UNAUTHORIZED, {"error": "E-mail não encontrado"})
-        
-        # Retorna os dados do cliente autenticado
-        cliente_dto = ClienteListDTO(cliente)
-        
-        # Armazena o cliente na sessão
-        request.session.set("cliente", cliente_dto.to_dict())
-        
-        # Retorna uma resposta de sucesso
-        return Response(HttpStatus.OK, {"message": "Login bem-sucedido", "cliente": cliente_dto.to_dict()})
-    
-    @Router.route("/session", "GET")
-    def check_session(request: Request):
-        cliente_data = request.session.get("cliente", "Não encontrado")
-        
-        # Verifica se é um tipo serializável para a resposta JSON
-        if not isinstance(cliente_data, (dict, list, str, int, float, bool, type(None))):
-            cliente_data = str(cliente_data)
-        
-        return Response(HttpStatus.OK, {
-            "message": "Sessão ativa",
-            "session_id": request.session.session_id,
-            "cliente_data": cliente_data
-        })
+        nome = request.form.get("nome")
+        email = request.form.get("email")
 
-    @Router.route("/logout", "POST")
-    def logout(request: Request):
-        # Limpa os dados da sessão
-        request.session.delete()
+        # print(f"nome: {nome} email: {email}")
+
+        if not nome or not email:
+            return HtmlResponse(HttpStatus.BAD_REQUEST, "<h1>Nome e email são obrigatórios!</h1>")
+
+        usuario = query.execute(Cliente, nome=nome, email=email)
         
-        return Response(HttpStatus.OK, {"message": "Logout realizado com sucesso"})
+
+        if not usuario:
+            return HtmlResponse(
+                HttpStatus.UNAUTHORIZED, 
+                "<h1>Usuário não encontrado!</h1><a href='/login'>Tentar novamente</a>"
+            )
+
+        # Armazena na sessão corretamente usando set()
+        request.session.set("user", {"id": usuario.id, "nome": usuario.nome, "email": usuario.email})
+
+        return RedirectResponse("/dashboard")
+
+
+    @Router.route("/dashboard", "GET")
+    def dashboard(request: Request):
+        """Mostra a página do usuário logado."""
+        user = request.session.get("user")  # Obtém a sessão corretamente
+        
+        if not user:
+            return RedirectResponse("/login")
+
+        return HtmlResponse(HttpStatus.OK, template_engine.render_template("dashboard.html", user=user))
+
 
 if __name__ == "__main__":
     setup_database()
     # Instancia os controladores para registrar as rotas automaticamente
     ClienteController()
-    PedidoController()
     AuthController()
-
-
+   
     # Inicializa e executa o servidor
     server = WebServer(port=8080)
     try:

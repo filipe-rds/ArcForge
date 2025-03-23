@@ -7,7 +7,7 @@ from functools import wraps
 from http.server import BaseHTTPRequestHandler
 from arcforge.core.conn import session
 from arcforge.core.conn.request import Request
-from arcforge.core.conn.response import Response, HttpStatus
+from arcforge.core.conn.response import Response, HttpStatus, IResponse
 from http.cookies import SimpleCookie
 
 from arcforge.core.conn.router import Router
@@ -55,12 +55,16 @@ class RequestHandler(BaseHTTPRequestHandler):
         if match:
             try:
                 response = route(request, **params)
+
+                if isinstance(response, IResponse):
+                    response = response.to_response()
+
+
                 if isinstance(response, Response):
-                    # Adicionar cookies da sessão à resposta
                     if not response.cookies:
                         response.cookies = {}
                     response.cookies.update(self.session.get_cookies())
-                    self._serve_json(response)
+                    self._serve_response(response)
                     return
                 return
             except Exception as e:
@@ -68,7 +72,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 return
         self._not_found()
 
-    def _serve_json(self, response: Response):
+    def _serve_response(self, response: Response):
         self.send_response(response.status)
         
         # Escrevendo os headers corretamente
@@ -82,13 +86,16 @@ class RequestHandler(BaseHTTPRequestHandler):
         
         self.end_headers()
 
+        if response.status == HttpStatus.FOUND:  
+            return
+
         if response.body:
             self.wfile.write(response.body.encode("utf-8"))
 
     def _not_found(self):
         """Retorna um erro 404 para rotas não encontradas."""
-        self._serve_json(Response(HttpStatus.NOT_FOUND, {"error": "Rota não encontrada"}))
+        self._serve_response(Response(HttpStatus.NOT_FOUND, {"error": "Rota não encontrada"}))
 
     def _internal_server_error(self, error_message: str):
         """Retorna um erro 500 para exceções internas."""
-        self._serve_json(Response(HttpStatus.INTERNAL_SERVER_ERROR, {"error": "Erro interno do servidor", "details": error_message}))
+        self._serve_response(Response(HttpStatus.INTERNAL_SERVER_ERROR, {"error": "Erro interno do servidor", "details": error_message}))

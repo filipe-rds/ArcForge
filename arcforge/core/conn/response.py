@@ -1,6 +1,7 @@
 import json
 import http.cookies
 from enum import Enum
+from abc import ABC, abstractmethod
 
 class HttpStatus(Enum):
     OK = (200, "OK")
@@ -11,6 +12,7 @@ class HttpStatus(Enum):
     FORBIDDEN = (403, "Forbidden")
     NOT_FOUND = (404, "Not Found")
     INTERNAL_SERVER_ERROR = (500, "Internal Server Error")
+    FOUND = (302, "Found")
 
     def __init__(self, code, message):
         self.code = code
@@ -32,12 +34,19 @@ class JsonSerializer:
         raise TypeError(f"Objeto do tipo {type(data).__name__} não é serializável")
 
 class Response:
-    def __init__(self, status: HttpStatus, data=None, headers=None, cookies=None):
+    def __init__(self, status: HttpStatus, data=None, headers=None, cookies=None, content_type="application/json"):
         self.status = status.code
         self.status_message = status.message
-        self.body = JsonSerializer.serialize(data)
         self.headers = headers or {}
         self.cookies = cookies or {}
+        self.content_type = content_type
+
+        if content_type == "text/html":
+            self.body = data if isinstance(data, str) else ""
+            self.headers.setdefault("Content-Type", "text/html; charset=utf-8")
+        else:
+            self.body = JsonSerializer.serialize(data)
+            self.headers.setdefault("Content-Type", "application/json; charset=utf-8")
 
         self._set_default_headers()
 
@@ -62,3 +71,55 @@ class Response:
         status_line = f"HTTP/1.1 {self.status} {self.status_message}"
         headers_lines = "\r\n".join(f"{key}: {value}" for key, value in self.headers.items())
         return f"{status_line}\r\n{headers_lines}\r\n\r\n{self.body}"
+
+
+
+class IResponse(ABC):
+    """Interface para respostas HTTP"""
+
+    def __init__(self, status: HttpStatus, content_type: str, headers=None, cookies=None):
+        self.status = status
+        self.headers = headers or {}
+        self.cookies = cookies or {}
+        self.content_type = content_type
+
+        # # Define o Content-Type automaticamente
+        # self.headers.setdefault("Content-Type", f"{self.content_type}; charset=utf-8")
+
+    @abstractmethod
+    def to_response(self) -> str:
+        """Método abstrato para gerar a resposta HTTP"""
+        pass
+
+
+class JsonResponse(IResponse):
+    """Resposta no formato JSON"""
+
+    def __init__(self, status: HttpStatus= HttpStatus.OK, data=None, headers=None, cookies=None):
+        super().__init__(status, "application/json", headers, cookies)
+        self.body = data
+
+    def to_response(self) -> Response:
+        """Retorna um objeto Response formatado"""
+        return Response(status= self.status, data= self.body, headers=self.headers, cookies=self.cookies,content_type=self.content_type)
+    
+
+class HtmlResponse(IResponse):
+    """Resposta no formato HTML"""
+
+    def __init__(self, status: HttpStatus, data="", headers=None, cookies=None):
+        super().__init__(status, "text/html", headers, cookies)
+        self.body = data
+
+    def to_response(self) -> Response:
+        """Retorna um objeto Response formatado"""
+        return Response(status=self.status, data=self.body, headers=self.headers, cookies=self.cookies,content_type= self.content_type)
+
+
+class RedirectResponse(IResponse):
+    def __init__(self, location: str, status=HttpStatus.FOUND):
+        self.location = location
+        self.status = status
+
+    def to_response(self):
+        return Response(self.status, headers={"Location": self.location})

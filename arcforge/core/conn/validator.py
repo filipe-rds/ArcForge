@@ -1,9 +1,10 @@
 from functools import wraps
-from response import *
+from .response import *
 
 class Validator:
     """
     Decorator para interceptar os tipos dos parâmetros de uma requisição de forma genérica.
+    Padrão INTERCEPTOR
     Exemplo de uso: @Validator(id=int, nome=str, ativo=bool)
     """
     def __init__(self, **expected_types):
@@ -22,9 +23,8 @@ class Validator:
                         converted_value = expected_type(kwargs[param])
                         kwargs[param] = converted_value
                     except (ValueError, TypeError):
-                        # Caso o tipo não seja válido, lança erro 500
+                        # lanca erro 500 se der errd
                         errors[param] = f"Parâmetro '{param}' deve ser do tipo {expected_type.__name__}"
-
             if errors:
                 # Se houver erros de tipo, retorna erro 500
                 return Response(

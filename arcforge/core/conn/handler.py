@@ -43,6 +43,16 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def do_DELETE(self):
         self._execute_route("DELETE")
+    
+    def do_OPTIONS(self):
+        """Responde a requisições OPTIONS com os cabeçalhos CORS necessários."""
+        self.send_response(204)  # 204 No Content (resposta padrão para preflight)
+        
+        # Configura os cabeçalhos CORS
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.end_headers()
 
     def _execute_route(self, method):
         request = Request(self)

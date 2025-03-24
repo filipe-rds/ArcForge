@@ -30,14 +30,16 @@ class Query:
                 WHERE table_name = %s
             );
         """)
-
+        conn = self.__get_connection()
         try:
-            with self.__get_connection().cursor() as cursor:
+            with conn.cursor() as cursor:
                 cursor.execute(query, (table_name,))
                 return cursor.fetchone()[0]  # Retorna True se a tabela existir, False caso contrário
         except psycopg.Error as e:
             logger.error(f"Erro ao verificar a existência da tabela {table_name}: {e}")
             raise
+        # finally:
+        #     conn.close()
 
     def create_table(self, base_model):
         """Cria a tabela no banco de dados com base no modelo fornecido."""
@@ -51,14 +53,19 @@ class Query:
             table=sql.Identifier(base_model._table_name),
             fields=sql.SQL(fields_sql)
         )
+
+        conn = self.__get_connection()
         try:
-            with self.__get_connection().cursor() as cursor:  # Usando a conexão obtida dinamicamente
+            with conn.cursor() as cursor:  # Usando a conexão obtida dinamicamente
                 cursor.execute(create_table_query)
-                self.__get_connection().commit()  # Commit na conexão
+                conn.commit()  # Commit na conexão
                 logger.info(f"Tabela {base_model._table_name} criada com sucesso.")
         except psycopg.Error as e:
+            conn.rollback()
             logger.error(f"Erro ao criar a tabela {base_model._table_name}: {e}")
             raise
+        # finally:
+        #     conn.close()
 
     def delete_table(self, base_model):
         """Deleta a tabela do banco de dados com base no modelo fornecido, removendo também as dependências (cascade)."""
@@ -66,14 +73,19 @@ class Query:
         drop_table_query = sql.SQL("DROP TABLE IF EXISTS {table} CASCADE;").format(
             table=sql.Identifier(base_model._table_name)
         )
+
+        conn = self.__get_connection()
         try:
-            with self.__get_connection().cursor() as cursor:
+            with conn.cursor() as cursor:
                 cursor.execute(drop_table_query)
-                self.__get_connection().commit()
+                conn.commit()
                 logger.info(f"Tabela {base_model._table_name} deletada com sucesso (cascade).")
         except psycopg.Error as e:
+            conn.rollback()
             logger.error(f"Erro ao deletar a tabela {base_model._table_name}: {e}")
             raise
+        # finally:
+        #     conn.close()
 
     def save(self, model_instance):
         """Salva (INSERT) a instância no banco de dados."""
@@ -93,16 +105,20 @@ class Query:
             fields=sql.SQL(", ").join(map(sql.Identifier, columns)),
             placeholders=sql.SQL(", ").join(placeholders)
         )
+        conn = self.__get_connection()
         try:
-            with self.__get_connection().cursor() as cursor:
+            with conn.cursor() as cursor:
                 cursor.execute(query, values)
-                self.__get_connection().commit()
+                conn.commit()
                 model_instance.id = cursor.fetchone()[0]
                 logger.info(f"Instância de {model_instance.__class__.__name__} salva com sucesso.")
                 return model_instance
         except psycopg.Error as e:
+            conn.rollback()
             logger.error(f"Erro ao salvar a instância {model_instance._table_name}: {e}")
             raise
+        # finally:
+        #     conn.close()
 
     def update(self, model_instance):
         """Atualiza (UPDATE) a instância no banco de dados."""
@@ -126,15 +142,20 @@ class Query:
             id_placeholder=sql.Placeholder()
         )
         values.append(model_id)
+
+        conn = self.__get_connection()
         try:
-            with self.__get_connection().cursor() as cursor:
+            with conn.cursor() as cursor:
                 cursor.execute(query, values)
-                self.__get_connection().commit()
+                conn.commit()
                 logger.info(f"Instância de {model_instance.__class__.__name__} atualizada com sucesso.")
                 return model_instance
         except psycopg.Error as e:
+            conn.rollback()
             logger.error(f"Erro ao atualizar a instância {model_instance._table_name}: {e}")
             raise
+        # finally:
+        #     conn.close()
 
     def delete(self, model_class, object_id):
         """Deleta um registro do banco passando um objeto da classe modelo ou um ID."""
@@ -148,14 +169,19 @@ class Query:
         """).format(
             table=sql.Identifier(model_class._table_name)
         )
+
+        conn = self.__get_connection()
         try:
-            with self.__get_connection().cursor() as cursor:
+            with conn.cursor() as cursor:
                 cursor.execute(query, (object_id,))
-                self.__get_connection().commit()
+                conn.commit()
                 logger.info(f"Registro com ID {object_id} deletado com sucesso.")
         except psycopg.Error as e:
+            conn.rollback()
             logger.error(f"Erro ao deletar registro com ID {object_id}: {e}")
             raise
+        # finally:
+        #     conn.close()
 
     def read(self, model_class, object_id):
         """Busca um objeto pelo ID no banco de dados."""
@@ -165,8 +191,10 @@ class Query:
         """).format(
             table=sql.Identifier(model_class._table_name)
         )
+
+        conn = self.__get_connection()
         try:
-            with self.__get_connection().cursor() as cursor:
+            with conn.cursor() as cursor:
                 cursor.execute(query, [object_id])
                 row = cursor.fetchone()
                 if row:
@@ -176,6 +204,8 @@ class Query:
         except psycopg.Error as e:
             logger.error(f"Erro ao buscar {model_class.__name__} com ID {object_id}: {e}")
             raise
+        # finally:
+        #     conn.close()
 
     def find_all(self, model_class) -> List[Any]:
         """Executa uma consulta SQL personalizada."""
@@ -185,8 +215,10 @@ class Query:
         """).format(
             table=sql.Identifier(model_class._table_name)
         )
+
+        conn = self.__get_connection()
         try:
-            with self.__get_connection().cursor() as cursor:
+            with conn.cursor() as cursor:
                 cursor.execute(query)
                 columns = [desc[0] for desc in cursor.description]
                 rows = cursor.fetchall()
@@ -199,18 +231,25 @@ class Query:
         except psycopg.Error as e:
             logger.error(f"Erro ao executar a consulta: {e}")
             raise
+        # finally:
+        #     conn.close()
 
     def execute_sql(self, query: str, params: List[Any]) -> List[Any]:
+        conn = self.__get_connection()
         try:
-            with self.__get_connection().cursor() as cursor:
+            with conn.cursor() as cursor:
                 cursor.execute(query, params)
                 return cursor.fetchall()
         except psycopg.Error as e:
             logger.error(f"Erro ao executar a consulta: {e}")
             raise
+        # finally:
+        #     conn.close()
 
     def execute(self, base_model, **kwargs) -> Any:
         from arcforge.core.db.util import Util
+
+        conn = self.__get_connection()
         try:
             # Extrai parâmetros especiais
             where_filters = kwargs.pop('where', {})
@@ -308,28 +347,31 @@ class Query:
             # 6. Execução e retorno
             filter_values.extend(having_values)  # Combina os valores de WHERE e HAVING
 
-            with self.__get_connection().cursor() as cursor:
+
+            with conn.cursor() as cursor:
                 cursor.execute(query, filter_values)
                 rows = cursor.fetchall()
                 columns = [desc[0] for desc in cursor.description]
 
-            # Converte as linhas em objetos
-            if not rows:
-                return None
+                # Converte as linhas em objetos
+                if not rows:
+                    return None
 
-            result = [Util._row_to_object(base_model, row, columns) for row in rows]
+                result = [Util._row_to_object(base_model, row, columns) for row in rows]
 
-            # Retorna um único objeto se single_result for True ou se houver apenas um resultado
-            if single_result or len(result) == 1:
-                return result[0] if result else None
+                # Retorna um único objeto se single_result for True ou se houver apenas um resultado
+                if single_result or len(result) == 1:
+                    return result[0] if result else None
 
-            return result
+                return result
 
         except psycopg.Error as e:
             # Captura a query que falhou para diagnóstico
             query_str = query.as_string(self.__get_connection()) if locals().get("query") else "Query não gerada"
             logger.error(f"Erro na consulta: {e}\nQuery: {query_str}")
             raise
+        # finally:
+        #     conn.close()
 
 
 

@@ -26,7 +26,7 @@ class JsonSerializer:
     @staticmethod
     def serialize(data) -> str:
         if data is None:
-            return ""
+            return  "null"  
         if isinstance(data, (dict, list, str)):
             return json.dumps(data, indent=4, ensure_ascii=False)
         if hasattr(data, "__dict__"):
@@ -52,6 +52,11 @@ class Response:
 
     def _set_default_headers(self):
         """Define os headers padrão da resposta."""
+        
+        if not isinstance(self.body, str):  # Converte para string se necessário
+            self.body = str(self.body) if self.body else ""
+
+
         if self.body:
             self.headers.setdefault("Content-Type", "application/json; charset=utf-8")
             self.headers.setdefault("Content-Length", str(len(self.body.encode("utf-8"))))
@@ -97,11 +102,17 @@ class JsonResponse(IResponse):
 
     def __init__(self, status: HttpStatus= HttpStatus.OK, data=None, headers=None, cookies=None):
         super().__init__(status, "application/json", headers, cookies)
-        self.body = data
+        self.body = data if data is not None else {}
 
     def to_response(self) -> Response:
         """Retorna um objeto Response formatado"""
-        return Response(status= self.status, data= self.body, headers=self.headers, cookies=self.cookies,content_type=self.content_type)
+        return Response(
+                    status=self.status, 
+                    data=self.body, 
+                    headers=self.headers,  
+                    cookies=self.cookies,
+                    content_type=self.content_type
+                )
     
 
 class HtmlResponse(IResponse):
@@ -109,7 +120,7 @@ class HtmlResponse(IResponse):
 
     def __init__(self, status: HttpStatus, data="", headers=None, cookies=None):
         super().__init__(status, "text/html", headers, cookies)
-        self.body = data
+        self.body = data if data is not None else {}
 
     def to_response(self) -> Response:
         """Retorna um objeto Response formatado"""

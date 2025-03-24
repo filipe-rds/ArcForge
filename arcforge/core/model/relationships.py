@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Type, Union
 
-from ..db.query import Query
 
 
 class OnDeleteAction(str, Enum):
@@ -24,6 +23,8 @@ class Relationship(ABC):
             on_delete: Union[OnDeleteAction, str] = OnDeleteAction.CASCADE,
             ref_column: str = "id"
     ):
+
+
         # Validação da classe relacionada
         if not hasattr(related_class, '_table_name'):
             raise AttributeError("A classe relacionada deve possuir '_table_name'")
@@ -69,6 +70,7 @@ class ManyToOne(Relationship):
         })
 
     def __get__(self, instance, owner):
+        from ..db.query import Query
         if instance is None:
             return self  # Acesso via classe retorna o próprio descritor
 

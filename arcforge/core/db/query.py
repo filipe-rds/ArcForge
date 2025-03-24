@@ -1,4 +1,3 @@
-from arcforge.core.db.util import Util
 from typing import List, Any
 import psycopg
 from psycopg import sql
@@ -78,6 +77,7 @@ class Query:
 
     def save(self, model_instance):
         """Salva (INSERT) a instância no banco de dados."""
+        from arcforge.core.db.util import Util
 
         Util.validationType(model_instance.__class__, model_instance)
         columns = [attr for attr in model_instance.__dict__ if not attr.startswith("_")]
@@ -106,6 +106,7 @@ class Query:
 
     def update(self, model_instance):
         """Atualiza (UPDATE) a instância no banco de dados."""
+        from arcforge.core.db.util import Util
         Util.validationType(model_instance.__class__, model_instance)
         model_id = getattr(model_instance, "id", None)
         if not model_id:
@@ -158,6 +159,7 @@ class Query:
 
     def read(self, model_class, object_id):
         """Busca um objeto pelo ID no banco de dados."""
+        from arcforge.core.db.util import Util
         query = sql.SQL(""" 
             SELECT * FROM {table} WHERE id = %s;
         """).format(
@@ -177,6 +179,7 @@ class Query:
 
     def find_all(self, model_class) -> List[Any]:
         """Executa uma consulta SQL personalizada."""
+        from arcforge.core.db.util import Util
         query = sql.SQL(""" 
             SELECT * FROM {table} ORDER BY id;
         """).format(
@@ -207,6 +210,7 @@ class Query:
             raise
 
     def execute(self, base_model, **kwargs) -> Any:
+        from arcforge.core.db.util import Util
         try:
             # Extrai parâmetros especiais
             where_filters = kwargs.pop('where', {})

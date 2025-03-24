@@ -1,13 +1,10 @@
 from typing import Dict
 from abc import ABC, abstractmethod
 
-from .field import Field
-from .relationships import Relationship, OneToOne
 
 
 class Model(ABC):
     _table_name: str = None
-
     @classmethod
     def Table(cls, table_name: str):
         """Decorator para definir o nome da tabela da classe."""
@@ -33,6 +30,7 @@ class Model(ABC):
 
     def _process_relationships(self, kwargs: Dict) -> None:
         """ Processa objetos passados em relacionamentos. """
+        from .relationships import Relationship
         # Itera sobre uma cópia dos itens para evitar modificar o dicionário durante a iteração
         for attr_name, value in list(kwargs.items()):
             if attr_name in self.__class__.__dict__:
@@ -53,6 +51,9 @@ class Model(ABC):
     @classmethod
     def _generate_fields(cls) -> str:
         """ Gera a definição SQL dos campos e relacionamentos. """
+        from .field import Field
+        from .relationships import Relationship
+
         fields = []
         for attr_name, field in cls.__dict__.items():
             if isinstance(field, Field):
@@ -65,7 +66,7 @@ class Model(ABC):
 
 
     @classmethod
-    def _process_field_relationships(cls, attr_name: str, field: Field) -> None:
+    def _process_field_relationships(cls, attr_name: str, field) -> None:
         """ Processa metadados de campos que são relacionamentos. """
         if field.foreign_key:
             cls._relationships.append({
@@ -76,8 +77,9 @@ class Model(ABC):
             })
 
     @classmethod
-    def _store_relationship_metadata(cls, attr_name: str, relationship: Relationship) -> None:
+    def _store_relationship_metadata(cls, attr_name: str, relationship) -> None:
         """ Armazena metadados de relacionamentos, garantindo a inclusão da classe do modelo relacionado. """
+        from .relationships import OneToOne
         cls._relationships.append({
             "attr_name": attr_name,  # Nome do atributo no modelo
             "field_name": f"{attr_name}_id",

@@ -1,4 +1,5 @@
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound
+from .factory_template_engine import TemplateEngineFactory
 import os
 
 class TemplateEngine:
@@ -24,5 +25,6 @@ class TemplateEngine:
         except Exception as e:
             raise RuntimeError(f"Erro ao renderizar template '{template_name}': {e}")
 
-# Criando uma instância global do TemplateEngine
-template_engine = TemplateEngine()
+
+factory = TemplateEngineFactory() 
+template_engine = factory.create_template_engine()  # Criando uma instância global do TemplateEngine

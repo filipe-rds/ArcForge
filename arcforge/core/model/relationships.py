@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Type, Union
 
-from arcforge.core.db.query import Query
+from ..db.query import Query
 
 
 class OnDeleteAction(str, Enum):

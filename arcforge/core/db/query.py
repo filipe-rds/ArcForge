@@ -243,8 +243,8 @@ class Query:
         except psycopg.Error as e:
             logger.error(f"Erro ao executar a consulta: {e}")
             raise
-        finally:
-            conn.close()
+        # finally:
+        #     conn.close()
 
     def execute(self, base_model, **kwargs) -> Any:
         from arcforge.core.db.util import Util

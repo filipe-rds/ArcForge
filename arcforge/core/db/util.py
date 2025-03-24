@@ -1,14 +1,11 @@
-
 from psycopg import sql
 from typing import List, Any
-
-from arcforge.core.model.field import Field, ValidationError
-
 
 class Util:
 
     @staticmethod
     def validationType(model, model_instance):
+        from arcforge.core.model.field import Field, ValidationError
         """
         Valida os tipos dos campos de uma instância do modelo usando a validação
         já implementada nas classes de Field.

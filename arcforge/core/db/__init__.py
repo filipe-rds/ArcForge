@@ -3,6 +3,4 @@
 from .manager import *
 from .query import *
 from .dao import *
-
-
-
+from .DBConfigPrototype import *

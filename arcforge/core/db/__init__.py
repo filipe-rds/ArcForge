@@ -3,5 +3,5 @@
 from .manager import *
 from .dao import *
 from .query import *
-
+from .DBConfigPrototype import *
 

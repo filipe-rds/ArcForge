@@ -2,8 +2,11 @@ import psycopg
 import threading
 from contextlib import contextmanager
 from arcforge.core.db.config import DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT
+from .DBConfigPrototype import *
 import logging
 
+# Eu clonei o objeto base, pois posso fazer as modificações do meu clone sem alterar o protótipo base.
+clone_config = default_config.clone(name=DB_NAME, user=DB_USER, password=DB_PASSWORD, host=DB_HOST, port=DB_PORT)
 
 # -----------------------------------------------------------------------------
 # Configuração de Logging
@@ -37,11 +40,11 @@ class DatabaseManager(metaclass=Singleton):
         """Estabelece a conexão com o banco de dados."""
         try:
             self._connection = psycopg.connect(
-                host=DB_HOST,
-                dbname=DB_NAME,
-                user=DB_USER,
-                password=DB_PASSWORD,
-                port=DB_PORT,
+                host=clone_config.host,
+                dbname=clone_config.name,
+                user=clone_config.user,
+                password=clone_config.password,
+                port= clone_config.port,
             )
             logger.info("Conexão estabelecida com sucesso.")
         except psycopg.Error as e:
